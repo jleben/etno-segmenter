@@ -55,13 +55,11 @@ public:
         delete[] m_inBuf;
     }
 
-    void process ( const float *spectrum )
+    void process ( const std::vector<float> & spectrum )
     {
         static const float ath = 1.0f/65536;
 
-        static const int inputSize = m_windowSize / 2 + 1;
-
-        for (int idx = 0; idx < inputSize; ++idx)
+        for (int idx = 0; idx < spectrum.size(); ++idx)
             m_inBuf[idx] = std::sqrt( spectrum[idx] );
 
         for (int filterIdx = 0; filterIdx < m_filterCount; ++filterIdx)

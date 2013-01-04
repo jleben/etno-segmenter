@@ -9,6 +9,8 @@ class Resampler;
 class PowerSpectrum;
 class Mfcc;
 class ChromaticEntropy;
+class Statistics;
+class Energy;
 
 class Plugin : public Vamp::Plugin
 {
@@ -50,9 +52,11 @@ private:
     size_t m_stepSize;
 
     Resampler * m_resampler;
+    Energy * m_energy;
     PowerSpectrum * m_spectrum;
     Mfcc * m_mfcc;
     ChromaticEntropy * m_entropy;
+    Statistics *m_statistics;
 };
 
 } // namespace Segmenter
