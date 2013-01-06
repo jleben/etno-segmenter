@@ -3,6 +3,13 @@
 
 namespace Segmenter {
 
+struct ProcessContext {
+    ProcessContext(): sampleRate(0), blockSize(0), stepSize(0) {}
+    float sampleRate;
+    int blockSize;
+    int stepSize;
+};
+
 /*class Module
 {
 protected:

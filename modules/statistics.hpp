@@ -48,7 +48,7 @@ private:
     bool m_first;
 
 public:
-    Statistics( int windowSize = 132, int stepSize = 22, int deltaWindowSize = 5 ):
+    Statistics( int windowSize, int stepSize, int deltaWindowSize ):
         m_windowSize(windowSize),
         m_stepSize(stepSize),
         m_output(0),

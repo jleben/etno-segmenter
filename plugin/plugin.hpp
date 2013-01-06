@@ -1,7 +1,10 @@
 #ifndef SEGMENTER_PLUGIN_HPP_INCLUDED
 #define SEGMENTER_PLUGIN_HPP_INCLUDED
 
+#include "../modules/module.hpp"
+
 #include <vamp-sdk/Plugin.h>
+#include <vector>
 
 namespace Segmenter {
 
@@ -47,9 +50,15 @@ public:
     FeatureSet getRemainingFeatures();
 
 private:
-    float m_sampleRate;
-    size_t m_blockSize;
-    size_t m_stepSize;
+    struct InputContext {
+        InputContext(): sampleRate(0), blockSize(0) {}
+        float sampleRate;
+        int blockSize;
+    } m_inputContext;
+
+    ProcessContext m_procContext;
+
+    void deleteModules();
 
     Resampler * m_resampler;
     Energy * m_energy;
@@ -57,6 +66,21 @@ private:
     Mfcc * m_mfcc;
     ChromaticEntropy * m_entropy;
     Statistics *m_statistics;
+
+    int m_statBlockSize;
+    int m_statStepSize;
+    Vamp::RealTime m_statsStepDuration;
+    Vamp::RealTime m_statsTime;
+
+    std::vector<float> m_resampBuffer;
+
+    void initStatistics()
+    {
+        m_statsStepDuration = Vamp::RealTime::fromSeconds
+            ( (double) m_statStepSize * m_procContext.stepSize / m_procContext.sampleRate );
+        m_statsTime = Vamp::RealTime::fromSeconds
+            ( ((double) m_statBlockSize / 2.0) * m_procContext.stepSize / m_procContext.sampleRate );
+    }
 };
 
 } // namespace Segmenter
