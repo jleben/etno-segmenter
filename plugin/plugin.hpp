@@ -14,6 +14,7 @@ class Mfcc;
 class ChromaticEntropy;
 class Statistics;
 class Energy;
+class Classifier;
 
 class Plugin : public Vamp::Plugin
 {
@@ -66,6 +67,7 @@ private:
     Mfcc * m_mfcc;
     ChromaticEntropy * m_entropy;
     Statistics *m_statistics;
+    Classifier *m_classifier;
 
     int m_statBlockSize;
     int m_statStepSize;

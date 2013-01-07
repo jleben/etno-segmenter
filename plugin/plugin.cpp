@@ -5,6 +5,7 @@
 #include "../modules/mfcc.hpp"
 #include "../modules/entropy.hpp"
 #include "../modules/statistics.hpp"
+#include "../modules/classification.hpp"
 
 #include <vamp/vamp.h>
 #include <vamp-sdk/PluginAdapter.h>
@@ -39,6 +40,7 @@ Plugin::Plugin(float inputSampleRate):
     m_spectrum(0),
     m_mfcc(0),
     m_entropy(0),
+    m_classifier(0),
     m_statistics(0),
     m_statBlockSize(132),
     m_statStepSize(22)
@@ -150,6 +152,7 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_entropy = new ChromaticEntropy( m_procContext.sampleRate, m_procContext.blockSize,
                                       chromEntropyLoFreq, chromEntropyHiFreq );
     m_statistics = new Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
+    m_classifier = new Classifier();
 
     initStatistics();
 }
@@ -224,6 +227,17 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outStat.name = "MFCC (2) Delta Variance";
     list.push_back(outStat);
 
+    OutputDescriptor outClasses;
+    outClasses.hasFixedBinCount = true;
+    outClasses.binCount = 5;
+    if (m_classifier)
+        outClasses.binNames = m_classifier->classNames();
+    outClasses.sampleType = OutputDescriptor::FixedSampleRate;
+    outClasses.sampleRate = outStat.sampleRate;
+    outClasses.identifier = "classification";
+    outClasses.name = "Classification";
+    list.push_back(outClasses);
+
     return list;
 }
 
@@ -250,7 +264,7 @@ Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp:
         m_spectrum->process( block );
         m_mfcc->process( m_spectrum->output() );
         m_entropy->process( m_spectrum->output() );
-        m_statistics->process( m_energy->output(), m_mfcc->output(), m_entropy->output(), false );
+        m_statistics->process( m_energy->output(), m_mfcc->output(), m_entropy->output() );
 
         Feature entropy;
         entropy.values.push_back( m_entropy->output() );
@@ -265,13 +279,16 @@ Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp:
         {
             const Statistics::OutputFeatures & stat = stats[i];
 
+            m_classifier->process( stat.features );
+
+/*
             Feature statFeature;
             statFeature.hasTimestamp = true;
             statFeature.timestamp = m_statsTime;
             statFeature.values.resize(1);
             float & value = statFeature.values[0];
 
-            value = stat.energyFlux;
+            value = stat[Statistics::ENERGY_FLUX];
             features[2].push_back(statFeature);
 
             value = stat.entropyMean;
@@ -285,6 +302,13 @@ Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp:
 
             value = stat.deltaMfcc2Var;
             features[6].push_back(statFeature);
+*/
+            Feature classification;
+            classification.hasTimestamp = true;
+            classification.timestamp = m_statsTime;
+            classification.values = m_classifier->probabilities();
+
+            features[7].push_back( classification );
 
             m_statsTime = m_statsTime + m_statsStepDuration;
         }
@@ -314,6 +338,8 @@ void Plugin::deleteModules()
     m_energy = 0;
     delete m_statistics;
     m_statistics = 0;
+    delete m_classifier;
+    m_classifier = 0;
 }
 
 } // namespace Segmenter

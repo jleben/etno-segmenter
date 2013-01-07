@@ -8,6 +8,7 @@ namespace Segmenter {
 class Statistics
 {
 public:
+    /*
     struct OutputFeatures {
         float entropyMean;
         float mfcc2Var;
@@ -19,6 +20,29 @@ public:
         float deltaMfcc4Var;
         float energyFlux;
     };
+    */
+    enum OutputFeature {
+        ENTROPY_MEAN = 0,
+        MFCC2_VAR,
+        MFCC3_VAR,
+        MFCC4_VAR,
+        ENTROPY_DELTA_VAR,
+        MFCC2_DELTA_VAR,
+        MFCC3_DELTA_VAR,
+        MFCC4_DELTA_VAR,
+        ENERGY_FLUX,
+
+        OUTPUT_FEATURE_COUNT
+    };
+
+    struct OutputFeatures {
+        float features [OUTPUT_FEATURE_COUNT];
+
+        float & operator [] (int i) { return features[i]; }
+        const float & operator [] (int i) const { return features[i]; }
+    };
+
+    //typedef float OutputFeatures [OUTPUT_FEATURE_COUNT];
 
 private:
     struct DeltaFeatures {
@@ -57,7 +81,7 @@ public:
         initDeltaFilter( deltaWindowSize );
     }
 
-    void process ( float energy, const std::vector<float> & mfcc, float entropy, bool last )
+    void process ( float energy, const std::vector<float> & mfcc, float entropy )
     {
         m_output.clear();
 
@@ -81,12 +105,13 @@ public:
 
         m_inputBuffer.push_back(input);
 
+        /* TODO: move to a special processRemainingDat() function
         if (last) {
             m_inputBuffer.insert( m_inputBuffer.end(),
                                     halfFilterLen,
                                     input );
         }
-
+        */
         if (m_inputBuffer.size() < m_deltaFilter.size())
             return;
 
@@ -120,17 +145,18 @@ public:
         &m_deltaBuffer[idx].feature, m_windowSize, (sizeof(DeltaFeatures) / sizeof(float))
 
             OutputFeatures output;
-            output.entropyMean = mean( INPUT_VECTOR(entropy) );
-            output.mfcc2Var = variance( INPUT_VECTOR(mfcc2 ) );
-            output.mfcc3Var = variance( INPUT_VECTOR(mfcc3 ) );
-            output.mfcc4Var = variance( INPUT_VECTOR(mfcc4 ) );
-            output.deltaEntropyVar = variance( DELTA_VECTOR(entropy) );
-            output.deltaMfcc2Var = variance( DELTA_VECTOR(entropy) );
-            output.deltaMfcc3Var = variance( DELTA_VECTOR(entropy) );
-            output.deltaMfcc4Var = variance( DELTA_VECTOR(entropy) );
+
+            output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
+            output[MFCC2_VAR] = variance( INPUT_VECTOR(mfcc2 ) );
+            output[MFCC3_VAR] = variance( INPUT_VECTOR(mfcc3 ) );
+            output[MFCC4_VAR] = variance( INPUT_VECTOR(mfcc4 ) );
+            output[ENTROPY_DELTA_VAR] = variance( DELTA_VECTOR(entropy) );
+            output[MFCC2_DELTA_VAR] = variance( DELTA_VECTOR(mfcc2) );
+            output[MFCC3_DELTA_VAR] = variance( DELTA_VECTOR(mfcc3) );
+            output[MFCC4_DELTA_VAR] = variance( DELTA_VECTOR(mfcc4) );
             float energyMean = mean( INPUT_VECTOR(energy) );
             float energyVar = variance( INPUT_VECTOR(energy), energyMean );
-            output.energyFlux = energyMean != 0.f ? energyVar / (energyMean * energyMean) : 0.f;
+            output[ENERGY_FLUX] = energyMean != 0.f ? energyVar / (energyMean * energyMean) : 0.f;
 
             m_output.push_back(output);
 
