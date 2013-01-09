@@ -64,10 +64,10 @@ private:
     int m_stepSize;
 
     std::vector<float> m_deltaFilter;
+    int m_halfFilterLen;
 
     std::vector<InputFeatures> m_inputBuffer;
     std::vector<DeltaFeatures> m_deltaBuffer;
-    std::vector<OutputFeatures> m_output;
 
     bool m_first;
 
@@ -75,16 +75,13 @@ public:
     Statistics( int windowSize, int stepSize, int deltaWindowSize ):
         m_windowSize(windowSize),
         m_stepSize(stepSize),
-        m_output(0),
         m_first(false)
     {
         initDeltaFilter( deltaWindowSize );
     }
 
-    void process ( float energy, const std::vector<float> & mfcc, float entropy )
+    void process ( float energy, float entropy, const std::vector<float> & mfcc, std::vector<OutputFeatures> & outBuffer )
     {
-        m_output.clear();
-
         InputFeatures input;
         input.energy = energy;
         input.mfcc2 = mfcc[1];
@@ -92,26 +89,33 @@ public:
         input.mfcc4 = mfcc[3];
         input.entropy = entropy;
 
-        const int halfFilterLen = (m_deltaFilter.size() - 1) / 2;
-
         // populate input buffer;
         // pad beginning and end for the purpose of delta computations
         if (m_first) {
             m_first = false;
-            m_inputBuffer.insert( m_inputBuffer.begin(),
-                                    halfFilterLen,
-                                    input );
+            m_inputBuffer.insert( m_inputBuffer.begin(), m_halfFilterLen, input );
         }
 
         m_inputBuffer.push_back(input);
 
-        /* TODO: move to a special processRemainingDat() function
-        if (last) {
-            m_inputBuffer.insert( m_inputBuffer.end(),
-                                    halfFilterLen,
-                                    input );
-        }
-        */
+        process( outBuffer );
+    }
+
+    void processRemainingData ( std::vector<OutputFeatures> & outBuffer )
+    {
+        if ( !m_inputBuffer.size() )
+            return;
+
+        InputFeatures lastInput = m_inputBuffer.back();
+
+        m_inputBuffer.insert( m_inputBuffer.end(), m_halfFilterLen, lastInput );
+
+        process( outBuffer );
+    }
+
+private:
+    void process ( std::vector<OutputFeatures> & outBuffer )
+    {
         if (m_inputBuffer.size() < m_deltaFilter.size())
             return;
 
@@ -139,7 +143,7 @@ public:
         {
             //std::cout << "*********** idx = " << idx;
 #define INPUT_VECTOR( feature ) \
-        &m_inputBuffer[idx + halfFilterLen].feature, m_windowSize, (sizeof(InputFeatures) / sizeof(float))
+        &m_inputBuffer[idx + m_halfFilterLen].feature, m_windowSize, (sizeof(InputFeatures) / sizeof(float))
 
 #define DELTA_VECTOR( feature ) \
         &m_deltaBuffer[idx].feature, m_windowSize, (sizeof(DeltaFeatures) / sizeof(float))
@@ -158,7 +162,7 @@ public:
             float energyVar = variance( INPUT_VECTOR(energy), energyMean );
             output[ENERGY_FLUX] = energyMean != 0.f ? energyVar / (energyMean * energyMean) : 0.f;
 
-            m_output.push_back(output);
+            outBuffer.push_back(output);
 
 #undef INPUT_VECTOR
 #undef DELTA_VECTOR
@@ -169,9 +173,6 @@ public:
         m_deltaBuffer.erase( m_deltaBuffer.begin(), m_deltaBuffer.begin() + idx );
     }
 
-    const std::vector<OutputFeatures> & output() const { return m_output; }
-
-private:
     void initDeltaFilter( int filterLen )
     {
         int halfFilterLen = (filterLen - 1) / 2;
@@ -181,9 +182,10 @@ private:
             sum += i*i;
         for (int i = -halfFilterLen; i <= halfFilterLen; ++i)
             m_deltaFilter[ halfFilterLen + i ] = i / sum;
+        m_halfFilterLen = halfFilterLen;
     }
 
-    void applyFilter( const std::vector<float> & filter, float *dst, float *src, size_t src_spacing )
+    void applyFilter( const std::vector<float> & filter, float *dst, float *src, int src_spacing )
     {
         int filterSize = filter.size();
         *dst = 0;
@@ -193,7 +195,7 @@ private:
         }
     }
 
-    float mean ( float *vec, int count, size_t spacing )
+    float mean ( float *vec, int count, int spacing )
     {
         float mean = 0.f;
         for (int i = 0; i < count; ++i, vec += spacing)
@@ -202,13 +204,13 @@ private:
         return mean;
     }
 
-    float variance ( float *vec, int count, size_t spacing )
+    float variance ( float *vec, int count, int spacing )
     {
         float m = mean( vec, count, spacing );
         return variance( vec, count, spacing, m );
     }
 
-    float variance ( float *vec, int count, size_t spacing, float mean )
+    float variance ( float *vec, int count, int spacing, float mean )
     {
         float variance = 0.f;
         for (int i = 0; i < count; ++i, vec += spacing) {

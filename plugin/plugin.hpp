@@ -2,6 +2,7 @@
 #define SEGMENTER_PLUGIN_HPP_INCLUDED
 
 #include "../modules/module.hpp"
+#include "../modules/statistics.hpp"
 
 #include <vamp-sdk/Plugin.h>
 #include <vector>
@@ -51,6 +52,8 @@ public:
     FeatureSet getRemainingFeatures();
 
 private:
+    FeatureSet getFeatures(const float * input, Vamp::RealTime timestamp);
+
     struct InputContext {
         InputContext(): sampleRate(0), blockSize(0) {}
         float sampleRate;
@@ -75,6 +78,7 @@ private:
     Vamp::RealTime m_statsTime;
 
     std::vector<float> m_resampBuffer;
+    std::vector<Statistics::OutputFeatures> m_statsBuffer;
 
     void initStatistics()
     {

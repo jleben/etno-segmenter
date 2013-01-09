@@ -46,9 +46,9 @@ public:
         t[s_classCount - 1] = 1/sum;
     }
 
-    std::vector< std::string > classNames() { return m_classNames; }
+    const std::vector< std::string > & classNames() { return m_classNames; }
 
-    std::vector<float> probabilities() { return m_output; }
+    const std::vector<float> & probabilities() { return m_output; }
 };
 
 } // namespace Segmenter

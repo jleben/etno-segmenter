@@ -48,14 +48,14 @@ public:
     {
         m_inBuffer.insert( m_inBuffer.end(), data, data + size );
 
-        int outputIndex = outBuffer.size();
-        int outputSize = m_inBuffer.size() * m_srcData.src_ratio;
-        outBuffer.resize( outBuffer.size() + outputSize );
+        int outputOffset = outBuffer.size();
+        int maxOutputSize = m_inBuffer.size() * m_srcData.src_ratio;
+        outBuffer.resize( outBuffer.size() + maxOutputSize );
 
         m_srcData.data_in = m_inBuffer.data();
         m_srcData.input_frames = m_inBuffer.size();
-        m_srcData.data_out = outBuffer.data() + outputIndex;
-        m_srcData.output_frames = outputSize;
+        m_srcData.data_out = outBuffer.data() + outputOffset;
+        m_srcData.output_frames = maxOutputSize;
         m_srcData.end_of_input = false;
 
         int error = src_process( m_srcState, &m_srcData );
@@ -67,23 +67,33 @@ public:
         }
 
         m_inBuffer.erase( m_inBuffer.begin(), m_inBuffer.begin() + m_srcData.input_frames_used );
-        outBuffer.resize( outputIndex + m_srcData.output_frames_gen );
+        outBuffer.resize( outputOffset + m_srcData.output_frames_gen );
     }
-/*
-    void processRemainingData( std::vector<float> & output )
+
+    void processRemainingData( std::vector<float> & outBuffer )
     {
+        int outputOffset = outBuffer.size();
+        int maxOutputSize = m_inBuffer.size() * m_srcData.src_ratio * 2;
+        outBuffer.resize( outBuffer.size() + maxOutputSize );
+
         m_srcData.data_in = m_inBuffer.data();
         m_srcData.input_frames = m_inBuffer.size();
+        m_srcData.data_out = outBuffer.data() + outputOffset;
+        m_srcData.output_frames = maxOutputSize;
         m_srcData.end_of_input = true;
 
         int error = src_process( m_srcState, &m_srcData );
 
         m_inBuffer.clear();
 
-        if (error)
+        if (error) {
             std::cout << "Resampler ERROR: " << src_strerror(error) << std::endl;
+            outBuffer.resize( outputOffset );
+        }
+        else {
+            outBuffer.resize( outputOffset + m_srcData.output_frames_gen );
+        }
     }
-*/
 
 };
 

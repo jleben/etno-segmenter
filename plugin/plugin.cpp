@@ -229,13 +229,14 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 
     OutputDescriptor outClasses;
     outClasses.hasFixedBinCount = true;
-    outClasses.binCount = 5;
-    if (m_classifier)
-        outClasses.binNames = m_classifier->classNames();
+    outClasses.binCount = 1;
+    /*outClasses.binCount = m_classifier ? m_classifier->classNames().count() : 0;
+    if (m_classifier) outClasses.binNames = m_classifier->classNames();*/
     outClasses.sampleType = OutputDescriptor::FixedSampleRate;
     outClasses.sampleRate = outStat.sampleRate;
     outClasses.identifier = "classification";
     outClasses.name = "Classification";
+    outStat.unit = "class";
     list.push_back(outClasses);
 
     return list;
@@ -243,13 +244,28 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 
 Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
 {
+    return getFeatures( inputBuffers[0], timestamp );
+}
+
+Vamp::Plugin::FeatureSet Plugin::getRemainingFeatures()
+{
+    return getFeatures( 0, Vamp::RealTime() );
+}
+
+Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime timestamp)
+{
+    bool endOfStream = input == 0;
+
     FeatureSet features;
 
-    const float *input = inputBuffers[0];
 #if SEGMENTER_NO_RESAMPLING
-    m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
+    if (!endOfStream)
+        m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
 #else
-    m_resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
+    if (!endOfStream)
+        m_resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
+    else
+        m_resampler->processRemainingData( m_resampBuffer );
 #endif
 
     int blockFrame;
@@ -264,7 +280,7 @@ Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp:
         m_spectrum->process( block );
         m_mfcc->process( m_spectrum->output() );
         m_entropy->process( m_spectrum->output() );
-        m_statistics->process( m_energy->output(), m_mfcc->output(), m_entropy->output() );
+        m_statistics->process( m_energy->output(), m_entropy->output(), m_mfcc->output(), m_statsBuffer );
 
         Feature entropy;
         entropy.values.push_back( m_entropy->output() );
@@ -273,55 +289,60 @@ Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp:
         Feature melSpectrum;
         melSpectrum.values = m_entropy->melSpectrum();
         features[1].push_back(melSpectrum);
-
-        const std::vector<Statistics::OutputFeatures> & stats = m_statistics->output();
-        for (int i = 0; i < stats.size(); ++i)
-        {
-            const Statistics::OutputFeatures & stat = stats[i];
-
-            m_classifier->process( stat.features );
-
-/*
-            Feature statFeature;
-            statFeature.hasTimestamp = true;
-            statFeature.timestamp = m_statsTime;
-            statFeature.values.resize(1);
-            float & value = statFeature.values[0];
-
-            value = stat[Statistics::ENERGY_FLUX];
-            features[2].push_back(statFeature);
-
-            value = stat.entropyMean;
-            features[3].push_back(statFeature);
-
-            value = stat.deltaEntropyVar;
-            features[4].push_back(statFeature);
-
-            value = stat.mfcc2Var;
-            features[5].push_back(statFeature);
-
-            value = stat.deltaMfcc2Var;
-            features[6].push_back(statFeature);
-*/
-            Feature classification;
-            classification.hasTimestamp = true;
-            classification.timestamp = m_statsTime;
-            classification.values = m_classifier->probabilities();
-
-            features[7].push_back( classification );
-
-            m_statsTime = m_statsTime + m_statsStepDuration;
-        }
     }
 
+    if (endOfStream)
+        m_statistics->processRemainingData( m_statsBuffer );
+
+    for (int i = 0; i < m_statsBuffer.size(); ++i)
+    {
+        const Statistics::OutputFeatures & stat = m_statsBuffer[i];
+
+        m_classifier->process( stat.features );
+
+
+        Feature statFeature;
+        statFeature.hasTimestamp = true;
+        statFeature.timestamp = m_statsTime;
+        statFeature.values.resize(1);
+        float & value = statFeature.values[0];
+
+        value = stat[Statistics::ENERGY_FLUX];
+        features[2].push_back(statFeature);
+/*
+        value = stat.entropyMean;
+        features[3].push_back(statFeature);
+
+        value = stat.deltaEntropyVar;
+        features[4].push_back(statFeature);
+
+        value = stat.mfcc2Var;
+        features[5].push_back(statFeature);
+
+        value = stat.deltaMfcc2Var;
+        features[6].push_back(statFeature);
+*/
+        const std::vector<float> & distribution = m_classifier->probabilities();
+        float avgProb = 0;
+        for (int i = 0; i < distribution.size(); ++i)
+            avgProb += distribution[i] * i;
+        avgProb /= distribution.size() - 1;
+
+        Feature classification;
+        classification.hasTimestamp = true;
+        classification.timestamp = m_statsTime;
+        classification.values.push_back( avgProb );
+        //classification.values = m_classifier->probabilities();
+
+        features[7].push_back( classification );
+
+        m_statsTime = m_statsTime + m_statsStepDuration;
+    }
+
+    m_statsBuffer.clear();
     m_resampBuffer.erase( m_resampBuffer.begin(), m_resampBuffer.begin() + blockFrame );
 
     return features;
-}
-
-Vamp::Plugin::FeatureSet Plugin::getRemainingFeatures()
-{
-    return FeatureSet();
 }
 
 void Plugin::deleteModules()
