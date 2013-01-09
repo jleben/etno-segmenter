@@ -120,7 +120,7 @@ private:
             return;
 
         // compute deltas for new inputs and populate delta buffer
-        for (int idx = m_deltaBuffer.size(); idx <= m_inputBuffer.size() - m_deltaFilter.size(); ++idx)
+        for (int idx = m_deltaBuffer.size(); idx <= (int) m_inputBuffer.size() - m_deltaFilter.size(); ++idx)
         {
 #define APPLY_FILTER( dst, member, srcIdx ) \
     dst.member = 0; \
