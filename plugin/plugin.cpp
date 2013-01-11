@@ -232,6 +232,14 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outClasses.binCount = 1;
     /*outClasses.binCount = m_classifier ? m_classifier->classNames().count() : 0;
     if (m_classifier) outClasses.binNames = m_classifier->classNames();*/
+    /*
+    outClasses.isQuantized;
+    outClasses.quantizeStep = 1;
+    outClasses.hasKnownExtents = true;
+    outClasses.minValue = 1;
+    outClasses.maxValue = 5;
+    */
+
     outClasses.sampleType = OutputDescriptor::FixedSampleRate;
     outClasses.sampleRate = outStat.sampleRate;
     outClasses.identifier = "classification";
@@ -323,15 +331,16 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         features[6].push_back(statFeature);
 */
         const std::vector<float> & distribution = m_classifier->probabilities();
-        float avgProb = 0;
+        float avgClass = 0;
         for (int i = 0; i < distribution.size(); ++i)
-            avgProb += distribution[i] * i;
-        avgProb /= distribution.size() - 1;
+            avgClass += distribution[i] * i;
+        avgClass /= distribution.size() - 1;
 
         Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
-        classification.values.push_back( avgProb );
+        classification.values.push_back( avgClass );
+        //classification.label = "x";
         //classification.values = m_classifier->probabilities();
 
         features[7].push_back( classification );
