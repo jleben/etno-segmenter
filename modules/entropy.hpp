@@ -28,12 +28,16 @@ public:
 
     void process( const std::vector<float> & spectrum )
     {
+        const int melBinCount = m_melFilters.size();
+
         float sum = 0;
-        for (int melBin = 0; melBin < m_melFilters.size(); ++melBin)
+        for (int melBin = 0; melBin < melBinCount; ++melBin)
         {
             const Filter & filter = m_melFilters[melBin];
+            const int filterSize = filter.coeffs.size();
+
             float melPower = 0.f;
-            for (int bin = 0; bin < filter.coeffs.size(); ++bin)
+            for (int bin = 0; bin < filterSize; ++bin)
                 melPower += spectrum[bin + filter.offset] * filter.coeffs[bin];
 
             sum += melPower;
@@ -45,9 +49,9 @@ public:
         {
             static const double oneOverLog2 = 1.0 / std::log(2.0);
 
-            for (int bin = 0; bin < m_melFilters.size(); ++bin)
+            for (int melBin = 0; melBin < melBinCount; ++melBin)
             {
-                float power = m_melSpectrum[bin];
+                float power = m_melSpectrum[melBin];
                 power /= sum;
                 if (power != 0)
                     entropy += power * std::log(power) * oneOverLog2;

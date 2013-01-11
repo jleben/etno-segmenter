@@ -58,18 +58,20 @@ public:
     void process ( const std::vector<float> & spectrum )
     {
         static const float ath = 1.0f/65536;
+        const int spectrumSize = spectrum.size();
 
-        for (int idx = 0; idx < spectrum.size(); ++idx)
+        for (int idx = 0; idx < spectrumSize; ++idx)
             m_inBuf[idx] = std::sqrt( spectrum[idx] );
 
         for (int filterIdx = 0; filterIdx < m_filterCount; ++filterIdx)
         {
-            std::vector<float> & filter = m_melValues[filterIdx];
-            int offset = m_melOffsets[filterIdx];
+            const std::vector<float> & filter = m_melValues[filterIdx];
+            const int offset = m_melOffsets[filterIdx];
+            const int filterSize = filter.size();
 
             float filterOut = 0;
 
-            for (int idx = 0; idx < filter.size(); ++idx)
+            for (int idx = 0; idx < filterSize; ++idx)
                 filterOut += filter[idx] * m_inBuf[offset + idx];
 
             if (filterOut < ath)
@@ -86,8 +88,6 @@ public:
     }
 
     const std::vector<float> & output() const { return m_output; }
-
-    int outputSize() const { return m_filterCount; }
 
 private:
 

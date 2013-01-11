@@ -119,12 +119,16 @@ private:
         if (m_inputBuffer.size() < m_deltaFilter.size())
             return;
 
+        const int inputBufSize = m_inputBuffer.size();
+        const int deltaFilterSize = m_deltaFilter.size();
+
         // compute deltas for new inputs and populate delta buffer
-        for (int idx = m_deltaBuffer.size(); idx <= (int) m_inputBuffer.size() - m_deltaFilter.size(); ++idx)
+        const int lastInputToProcess = inputBufSize - deltaFilterSize;
+        for (int idx = m_deltaBuffer.size(); idx <= lastInputToProcess; ++idx)
         {
 #define APPLY_FILTER( dst, member, srcIdx ) \
     dst.member = 0; \
-    for (int filterIdx = 0; filterIdx < m_deltaFilter.size(); ++filterIdx) \
+    for (int filterIdx = 0; filterIdx < deltaFilterSize; ++filterIdx) \
         dst.member += m_deltaFilter[filterIdx] * m_inputBuffer[srcIdx + filterIdx].member;
 
             DeltaFeatures delta;
@@ -138,8 +142,9 @@ private:
         }
 
         // compute statistics on inputs & deltas
+        const int lastDeltaToProcess = (int) m_deltaBuffer.size() - m_windowSize;
         int idx;
-        for (idx = 0; idx <= (int) m_deltaBuffer.size() - m_windowSize; idx += m_stepSize)
+        for (idx = 0; idx <= lastDeltaToProcess; idx += m_stepSize)
         {
             //std::cout << "*********** idx = " << idx;
 #define INPUT_VECTOR( feature ) \

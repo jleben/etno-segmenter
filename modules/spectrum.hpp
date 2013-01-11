@@ -51,18 +51,22 @@ public:
 
         fftwf_execute( m_plan );
 
-        std::vector<float> & out = m_output;
-        float *fft = m_outBuffer;
-        const int & winSize = m_windowSize;
+        float * out = m_output.data();
+        float * fft = m_outBuffer;
+        const int winSize = m_windowSize;
 
         out[0] = fft[0] * fft[0];
-        for (int idx = 1; idx < (winSize + 1) / 2; ++idx)
+
+        const int pairCount = (winSize + 1) / 2;
+        for (int idx = 1; idx < pairCount; ++idx)
         {
             out[idx] = fft[idx] * fft[idx] + fft[winSize - idx] * fft[winSize - idx];
         }
+
         if (winSize % 2 == 0)
         {
-            out[winSize / 2] = fft[winSize / 2] * fft[winSize / 2];
+            const int lastIdx = winSize / 2;
+            out[lastIdx] = fft[lastIdx] * fft[lastIdx];
         }
     }
 
