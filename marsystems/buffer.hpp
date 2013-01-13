@@ -36,7 +36,7 @@ namespace Marsyas
     blockSize.
 
     Controls:
-    - \b mrs_natural/blockSize [w] : amount of samples passed to child MarSystem
+    - \b mrs_natural/blockSize [rw] : amount of samples passed to child MarSystem
     - \b mrs_natural/hopSize [rw] : amount of frames between beginnings of blocks
 */
 
