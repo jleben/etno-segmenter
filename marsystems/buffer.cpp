@@ -109,26 +109,19 @@ Buffer::myUpdate(MarControlPtr sender)
 }
 
 // dst_first must not be between first and first+count!
-static void copy( realvec & src, mrs_natural first, mrs_natural count,
+static void copy( realvec & src, mrs_natural src_first, mrs_natural count,
                   realvec & dst, mrs_natural dst_first )
 {
-    mrs_natural last = first + count;
-
-    assert( (&src != &dst) || (dst_first < first || dst_first >= last) );
+    assert( (&src != &dst) || (dst_first < src_first || dst_first >= src_first + count) );
     assert( src.getRows() == dst.getRows() );
 
     mrs_real * srcData = src.getData();
     mrs_real * dstData = dst.getData();
     mrs_natural rowCount = src.getRows();
-    mrs_natural srcColCount = src.getCols();
-    mrs_natural dstColCount = dst.getCols();
 
-    for (mrs_natural r = 0; r < rowCount; ++r)
-    {
-        std::copy( srcData + first, srcData + last, dstData + dst_first );
-        srcData += srcColCount;
-        dstData += dstColCount;
-    }
+    memcpy( dstData + dst_first * rowCount,
+            srcData + src_first * rowCount,
+            count * rowCount * sizeof(mrs_real) );
 }
 
 void
