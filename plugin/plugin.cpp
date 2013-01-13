@@ -8,7 +8,6 @@
 #include "../modules/classification.hpp"
 
 #include <vamp/vamp.h>
-#include <vamp-sdk/PluginAdapter.h>
 
 #include <sstream>
 #include <iostream>
@@ -16,20 +15,6 @@
 #define SEGMENTER_NO_RESAMPLING 0
 
 using namespace std;
-
-static Vamp::PluginAdapter<Segmenter::Plugin> segmenterAdapter;
-
-const VampPluginDescriptor *vampGetPluginDescriptor(unsigned int version, unsigned int index)
-{
-    if (version < 1) return 0;
-
-    switch (index) {
-    case 0:
-        return segmenterAdapter.getDescriptor();
-    default:
-        return 0;
-    }
-}
 
 namespace Segmenter {
 
