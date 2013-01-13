@@ -34,14 +34,15 @@ Buffer::Buffer(mrs_string name) :
 {
     isComposite_ = true;
 
-    /// Add any specific controls needed by this MarSystem.
     addControls();
 }
 
-Buffer::Buffer(const Buffer& a) : MarSystem(a)
+Buffer::Buffer(const Buffer& a) :
+    MarSystem(a),
+    m_blockSize( a.m_blockSize ),
+    m_hopSize( a.m_hopSize ),
+    m_blockIdx( 0 )
 {
-    /// All member MarControlPtr have to be explicitly reassigned in
-    /// the copy constructor.
     ctrl_blockSize = getControl("mrs_natural/blockSize");
     ctrl_hopSize = getControl("mrs_natural/hopSize");
 }
