@@ -104,8 +104,10 @@ Buffer::myUpdate(MarControlPtr sender)
         setControl("mrs_natural/onSamples", 0);
     }
 
-    m_block.allocate( inObservations_, m_blockSize );
-    m_blockIdx = 0;
+    if ( m_block.getRows() != inObservations_ || m_block.getCols() != m_blockSize ) {
+        m_block.allocate( inObservations_, m_blockSize );
+        m_blockIdx = 0;
+    }
 }
 
 // dst_first must not be between first and first+count!
