@@ -18,7 +18,7 @@
 */
 
 #include "marsyas/common.h"
-#include "buffer.h"
+#include "buffer.hpp"
 
 #include <cassert>
 #include <algorithm>
