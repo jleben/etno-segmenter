@@ -110,7 +110,7 @@ Buffer::myUpdate(MarControlPtr sender)
     }
 }
 
-// dst_first must not be between first and first+count!
+// dst_first must be outside src range!
 static void copy( realvec & src, mrs_natural src_first, mrs_natural count,
                   realvec & dst, mrs_natural dst_first )
 {
