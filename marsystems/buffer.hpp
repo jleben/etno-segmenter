@@ -17,40 +17,37 @@
 ** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#ifndef MARSYAS_BUFFER_H
-#define MARSYAS_BUFFER_H
+#ifndef MARSYAS_BUFFER_HPP
+#define MARSYAS_BUFFER_HPP
 
 #include "marsyas/MarSystem.h"
 
 namespace Marsyas
 {
 /**
-	\class Buffer
-	\ingroup Processing
-	\brief Basic example on how to use controls efficiently in MarSystems
+    \class Buffer
+    \ingroup Processing
+    \brief Change the processing block size and overlap
 
-	This example is the same as Gain; it scales the output by
-	multiplying each sample with a real number.
+    Buffer accumulates input frames, and passes them on to child MarSystem in blocks
+    of arbitrary size, with optional overlap when hopSize is smaller than blockSize.
 
-	Controls:
-	- \b mrs_real/gain [w] : sets the gain multiplier.
-	- \b mrs_bool/dummy [rw] : does nothing.
+    Note that hopSize can not be larger than blockSize - it will always be clipped to
+    blockSize.
+
+    Controls:
+    - \b mrs_natural/blockSize [w] : amount of samples passed to child MarSystem
+    - \b mrs_natural/hopSize [rw] : amount of frames between beginnings of blocks
 */
 
 class marsyas_EXPORT Buffer: public MarSystem
 {
 private:
+    void myUpdate(MarControlPtr sender);
+    void addControls();
 
-	/// Add specific controls needed by this MarSystem.
-	void addControls();
-
-	/// Reads changed controls and sets up variables if necessary.
-	void myUpdate(MarControlPtr sender);
-
-
-	/// MarControlPtr for the gain control
-	MarControlPtr ctrl_blockSize;
-	MarControlPtr ctrl_hopSize;
+    MarControlPtr ctrl_blockSize;
+    MarControlPtr ctrl_hopSize;
 
     mrs_natural m_blockSize;
     mrs_natural m_hopSize;
@@ -59,25 +56,14 @@ private:
     mrs_natural m_blockIdx;
 
 public:
-	/// Buffer constructor.
-	Buffer(std::string name);
+    Buffer(std::string name);
+    Buffer(const Buffer& a);
+    ~Buffer();
+    MarSystem* clone() const;
 
-	/// Buffer copy constructor.
-	Buffer(const Buffer& a);
-
-	/// Buffer destructor.
-	~Buffer();
-
-	/// Implementation of the MarSystem::clone() method.
-	MarSystem* clone() const;
-
-	/// Implementation of the MarSystem::myProcess method.
-	void myProcess(realvec& in, realvec& out);
+    void myProcess(realvec& in, realvec& out);
 };
 
-}
-//namespace Marsyas
+} // namespace Marsyas
 
-#endif
-//MARSYAS_BUFFER_H
-
+#endif // MARSYAS_BUFFER_HPP
