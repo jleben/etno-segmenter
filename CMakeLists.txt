@@ -10,6 +10,7 @@ set( plugin_src
     modules/classification.cpp
     marsystems/buffer.cpp
     marsystems/vampsink.cpp
+    marsystems/chromaticentropy.cpp
 )
 
 add_library( plugin MODULE ${plugin_src} )
