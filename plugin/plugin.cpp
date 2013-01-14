@@ -154,63 +154,21 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 {
     OutputList list;
 
-    OutputDescriptor outFeature;
-    outFeature.sampleType = OutputDescriptor::FixedSampleRate;
-    outFeature.sampleRate = m_procContext.sampleRate / m_procContext.stepSize;
+    int featureFrames = std::ceil(
+        m_procContext.stepSize /* * m_pipeInfo.statStepSize*/
+        * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
 
-    outFeature.identifier = "entropy";
-    outFeature.name = "Entropy";
-    outFeature.description = "Chromatic Entropy";
-    outFeature.hasFixedBinCount = true;
-    outFeature.binCount = 1;
-    list.push_back(outFeature);
-
-    outFeature.identifier = "melspectrum";
-    outFeature.name = "Mel-Spectrum";
-    outFeature.description = "Mel Scale Power Spectrum";
-    outFeature.hasFixedBinCount = true;
-    outFeature.binCount = m_entropy ? m_entropy->melBinCount() : 1 ;
-    if (m_entropy) {
-        std::vector<std::string> labels;
-        const std::vector<float> &freqs = m_entropy->melFrequencies();
-        labels.reserve( freqs.size() );
-        for (int idx = 0; idx < freqs.size(); ++idx) {
-            std::ostringstream out;
-            out << freqs[idx];
-            labels.push_back( out.str() );
-        }
-        outFeature.binNames = labels;
-    }
-    list.push_back(outFeature);
+    double featureSampleRate = (double) m_inputContext.sampleRate / featureFrames;
 
     OutputDescriptor outStat;
+    outStat.identifier = "features";
+    outStat.name = "Features";
     outStat.hasFixedBinCount = true;
-    outStat.binCount = 1;
-    outStat.sampleType = OutputDescriptor::VariableSampleRate;
-    outStat.sampleRate = (double) m_procContext.sampleRate / (m_statStepSize * m_procContext.stepSize);
-
-    outStat.identifier = "energyfluctuation";
-    outStat.name = "Energy Fluctuation";
-    outStat.description = "Energy Fluctuation";
+    outStat.binCount = 5;
+    outStat.sampleType = OutputDescriptor::FixedSampleRate;
+    outStat.sampleRate = featureSampleRate;
     list.push_back(outStat);
 
-    outStat.identifier = "entropymean";
-    outStat.name = "Chromatic Entropy Mean";
-    outStat.description = "Chromatic Entropy Mean";
-    list.push_back(outStat);
-
-    outStat.identifier = "deltaentropyvariance";
-    outStat.name = "Chromatic Entropy Delta Variance";
-    outStat.description = "Chromatic Entropy Delta Variance";
-    list.push_back(outStat);
-
-    outStat.identifier = "mfcc2var";
-    outStat.name = "MFCC (2) Variance";
-    list.push_back(outStat);
-
-    outStat.identifier = "dmfcc2var";
-    outStat.name = "MFCC (2) Delta Variance";
-    list.push_back(outStat);
 
     OutputDescriptor outClasses;
     outClasses.hasFixedBinCount = true;
@@ -275,13 +233,14 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         m_entropy->process( m_spectrum->output() );
         m_statistics->process( m_energy->output(), m_entropy->output(), m_mfcc->output(), m_statsBuffer );
 
-        Feature entropy;
-        entropy.values.push_back( m_entropy->output() );
-        features[0].push_back(entropy);
+        Feature basicFeatures;
+        basicFeatures.values.push_back( m_entropy->output() );
+        basicFeatures.values.push_back( m_mfcc->output()[2] );
+        basicFeatures.values.push_back( m_mfcc->output()[3] );
+        basicFeatures.values.push_back( m_mfcc->output()[4] );
+        basicFeatures.values.push_back( m_energy->output() );
 
-        Feature melSpectrum;
-        melSpectrum.values = m_entropy->melSpectrum();
-        features[1].push_back(melSpectrum);
+        features[0].push_back(basicFeatures);
     }
 
     if (endOfStream)
@@ -293,28 +252,6 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 
         m_classifier->process( stat.features );
 
-
-        Feature statFeature;
-        statFeature.hasTimestamp = true;
-        statFeature.timestamp = m_statsTime;
-        statFeature.values.resize(1);
-        float & value = statFeature.values[0];
-
-        value = stat[Statistics::ENERGY_FLUX];
-        features[2].push_back(statFeature);
-/*
-        value = stat.entropyMean;
-        features[3].push_back(statFeature);
-
-        value = stat.deltaEntropyVar;
-        features[4].push_back(statFeature);
-
-        value = stat.mfcc2Var;
-        features[5].push_back(statFeature);
-
-        value = stat.deltaMfcc2Var;
-        features[6].push_back(statFeature);
-*/
         const std::vector<float> & distribution = m_classifier->probabilities();
         float avgClass = 0;
         for (int i = 0; i < distribution.size(); ++i)
@@ -328,7 +265,7 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         //classification.label = "x";
         //classification.values = m_classifier->probabilities();
 
-        features[7].push_back( classification );
+        features[1].push_back( classification );
 
         m_statsTime = m_statsTime + m_statsStepDuration;
     }
