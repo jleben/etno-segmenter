@@ -5,6 +5,8 @@
 #include <marsyas/realvec.h>
 #include <marsyas/MarSystem.h>
 
+namespace Marsyas { class VampSink; }
+
 namespace Segmenter {
 
 using Marsyas::realvec;
@@ -68,7 +70,8 @@ private:
     realvec m_outputVector;
 
     MarSystem *m_pipeline;
-
+    Marsyas::VampSink *m_vampSink;
+    
     FeatureSet m_featureSet;
 };
 

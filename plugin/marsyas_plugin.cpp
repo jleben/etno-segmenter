@@ -1,6 +1,9 @@
 #include "marsyas_plugin.hpp"
 #include "../marsystems/buffer.hpp"
+#include "../marsystems/linear_trend.hpp"
+#include "../marsystems/mfcc.hpp"
 #include "../marsystems/chromaticentropy.hpp"
+#include "../marsystems/etno_muse_classifier.hpp"
 #include "../marsystems/vampsink.hpp"
 
 #include <marsyas/MarSystemManager.h>
@@ -16,7 +19,8 @@ namespace Segmenter {
 
 MarPlugin::MarPlugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
-    m_pipeline(0)
+    m_pipeline(0),
+    m_vampSink(0)
 {
     m_inputInfo.sampleRate = inputSampleRate;
 
@@ -117,7 +121,10 @@ Vamp::Plugin::OutputList MarPlugin::getOutputDescriptors() const
 {
     OutputList outputs;
 
-    int featureFrames = std::ceil( m_pipeInfo.stepSize * ((double) m_inputInfo.sampleRate / m_pipeInfo.sampleRate) );
+    int featureFrames = std::ceil(
+        m_pipeInfo.stepSize * m_pipeInfo.statStepSize
+        * ((double) m_inputInfo.sampleRate / m_pipeInfo.sampleRate) );
+
     double featureSampleRate = (double) m_inputInfo.sampleRate / featureFrames;
 
     OutputDescriptor out;
@@ -126,7 +133,7 @@ Vamp::Plugin::OutputList MarPlugin::getOutputDescriptors() const
     out.sampleType = OutputDescriptor::FixedSampleRate;
     out.sampleRate = featureSampleRate;
     out.hasFixedBinCount = true;
-    out.binCount = 9;
+    out.binCount = m_vampSink ? m_vampSink->getControl("mrs_natural/inObservations")->to<mrs_natural>() : 1;
 
     outputs.push_back(out);
 
@@ -146,98 +153,6 @@ Vamp::Plugin::FeatureSet MarPlugin::getRemainingFeatures()
 {
     return FeatureSet();
 }
-#if 0
-void MarPlugin::createPipeline()
-{
-    deletePipeline();
-
-    MarSystemManager mng;
-
-    MarSystem *mfccPipe = mng.create("Series", "mfccPipe");
-    mfccPipe->addMarSystem( mng.create("MFCC", "mfcc") );
-    mfccPipe->addMarSystem( mng.create("RemoveObservations", "mfccRange") );
-
-    MarSystem *spectrumCascade = mng.create("Cascade", "cascade");
-    spectrumCascade->addMarSystem( mfccPipe );
-    spectrumCascade->addMarSystem( mng.create("DeltaFirstOrderRegression", "delta") );
-
-    MarSystem *spectrumPipe = mng.create("Series", "spectrumPipe");
-    spectrumPipe->addMarSystem( mng.create("Spectrum", "spectrum") );
-    spectrumPipe->addMarSystem( mng.create("PowerSpectrum", "powerSpectrum") );
-    spectrumPipe->addMarSystem( spectrumCascade );
-
-    MarSystem *windowFan = mng.create("Fanout", "windowFan");
-    windowFan->addMarSystem( mng.create("Energy", "energy") );
-    windowFan->addMarSystem( spectrumPipe );
-
-    MarSystem *windowedPipe = mng.create("Series", "windowedPipe");
-    windowedPipe->addMarSystem( mng.create("ShiftInput", "windower") );
-    windowedPipe->addMarSystem( windowFan );
-
-    MarSystem *shredder = mng.create("Shredder", "shredder");
-    shredder->addMarSystem( windowedPipe );
-
-    MarSystem *statPipe = mng.create("Parallel", "statPipe");
-    statPipe->addMarSystem( mng.create("Mean", "meanEnergy") );
-    statPipe->addMarSystem( mng.create("Mean", "meanMfcc2") );
-    statPipe->addMarSystem( mng.create("Mean", "meanMfcc3") );
-    statPipe->addMarSystem( mng.create("Mean", "meanMfcc4") );
-    statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc2") );
-    statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc3") );
-    statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc4") );
-
-    MarSystem *resampler = mng.create("ResampleLinear", "resampler");
-
-    m_pipeline = mng.create("Series", "pipeline");
-    m_pipeline->addMarSystem( resampler );
-    m_pipeline->addMarSystem( shredder );
-    m_pipeline->addMarSystem( mng.create("Memory", "statBuffer") );
-    m_pipeline->addMarSystem( statPipe );
-
-    cout << "*** input blockSize = " << m_inputInfo.blockSize << endl;
-
-    /*resampler->setControl( "mrs_real/israte", m_inputInfo.sampleRate );
-    resampler->setControl( "mrs_natural/inSamples", m_inputInfo.blockSize );
-    resampler->setControl( "mrs_real/stretch", m_pipeInfo.sampleRate / m_inputInfo.sampleRate );
-    resampler->update();*/
-
-    m_pipeline->setControl( "mrs_real/israte", m_inputInfo.sampleRate );
-    m_pipeline->setControl( "mrs_natural/inSamples", m_inputInfo.blockSize );
-    resampler->setControl( "mrs_real/stretch", m_pipeInfo.sampleRate / m_inputInfo.sampleRate );
-    shredder->setControl( "mrs_natural/nTimes", m_pipeInfo.statStepSize );
-    shredder->setControl( "mrs_bool/accumulate", true );
-    windowedPipe->setControl( "ShiftInput/windower/mrs_natural/winSize", m_pipeInfo.blockSize );
-    mfccPipe->setControl( "MFCC/mfcc/mrs_natural/coefficients", m_pipeInfo.mfccCount );
-    mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/lowCutoff", (float) 2 / (m_pipeInfo.mfccCount-1) );
-    mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/highCutoff", (float) 4 / (m_pipeInfo.mfccCount-1) );
-    m_pipeline->setControl( "Memory/statBuffer/mrs_natural/memSize", m_pipeInfo.statBlockSize / m_pipeInfo.statStepSize );
-
-    m_pipeline->update();
-
-    int resampOutCount = resampler->getControl( "mrs_natural/onSamples" )->to<mrs_natural>();
-
-    cout << "*** resamp stretch = " << resampler->getControl("mrs_real/stretch")->to<mrs_real>() << endl;
-    cout << "*** resamp out = " << resampOutCount << endl;
-
-    int outObservationCount = m_pipeline->getControl( "mrs_natural/onObservations" )->to<mrs_natural>();
-    int outSampleCount = m_pipeline->getControl( "mrs_natural/onSamples" )->to<mrs_natural>();
-
-    cout << "*** windows in = "
-        << windowedPipe->getControl( "mrs_natural/inObservations" )->to<mrs_natural>()
-        << "/"
-        << windowedPipe->getControl( "mrs_natural/inSamples" )->to<mrs_natural>()
-        << endl;
-    cout << "*** win fan out = "
-        << windowFan->getControl( "mrs_natural/onObservations" )->to<mrs_natural>()
-        << "/"
-        << windowFan->getControl( "mrs_natural/onSamples" )->to<mrs_natural>()
-        << endl;
-    cout << "*** output format = [" << outObservationCount << "/" << outSampleCount << "]" << endl;
-
-    m_inputVector.allocate( 1, m_inputInfo.blockSize );
-    m_outputVector.allocate( outObservationCount, outSampleCount );
-}
-#endif
 
 void MarPlugin::createPipeline()
 {
@@ -250,11 +165,20 @@ void MarPlugin::createPipeline()
     MarSystem* protoBuffer = new Marsyas::Buffer("protoBuffer");
     mng.registerPrototype("Buffer", protoBuffer);
 
-    MarSystem* protoVampSink = new Marsyas::VampSink("protoVampSink");
-    mng.registerPrototype("VampSink", protoVampSink);
+    MarSystem* protoMyMfcc = new Marsyas::MyMFCC("protoMyMfcc");
+    mng.registerPrototype("MyMFCC", protoMyMfcc);
+
+    MarSystem* protoLinearTrend = new Marsyas::LinearTrend("protoLinearTrend");
+    mng.registerPrototype("LinearTrend", protoLinearTrend);
 
     MarSystem* protoChromaticEntropy = new Marsyas::ChromaticEntropy("protoChromaticEntropy");
     mng.registerPrototype("ChromaticEntropy", protoChromaticEntropy);
+
+    MarSystem* protoClassifier = new Marsyas::EtnoMuseClassifier("protoEtnoMuseClassifier");
+    mng.registerPrototype("EtnoMuseClassifier", protoClassifier);
+
+    MarSystem* protoVampSink = new Marsyas::VampSink("protoVampSink");
+    mng.registerPrototype("VampSink", protoVampSink);
 
     // create pipeline
 
@@ -262,26 +186,42 @@ void MarPlugin::createPipeline()
     vampSink->setFeatureSet( &m_featureSet );
 
     MarSystem *mfccPipe = mng.create("Series", "mfccPipe");
-    mfccPipe->addMarSystem( mng.create("MFCC", "mfcc") );
+    mfccPipe->addMarSystem( mng.create("MyMFCC", "mfcc") );
     mfccPipe->addMarSystem( mng.create("RemoveObservations", "mfccRange") );
 
     MarSystem *spectrumProcFan = mng.create("Fanout", "specProcFan");
     spectrumProcFan->addMarSystem( mng.create("ChromaticEntropy", "entropy") );
     spectrumProcFan->addMarSystem( mfccPipe );
 
+    MarSystem *trendPipe = mng.create("Series", "trendPipe");
+    trendPipe->addMarSystem( mng.create("Memory", "buffer") );
+    trendPipe->addMarSystem( mng.create("LinearTrend", "trend") );
+
     MarSystem *spectrumProc = mng.create("Cascade", "specProc");
     spectrumProc->addMarSystem( spectrumProcFan );
-    spectrumProc->addMarSystem( mng.create("DeltaFirstOrderRegression", "delta") );
+    spectrumProc->addMarSystem( trendPipe );
 
     MarSystem *spectrumPipe = mng.create("Series", "spectrumPipe");
     spectrumPipe->addMarSystem( mng.create("Spectrum", "spectrum") );
     spectrumPipe->addMarSystem( mng.create("PowerSpectrum", "powerSpectrum") );
     spectrumPipe->addMarSystem( spectrumProc );
 
+    MarSystem *energyPipe = mng.create("Series", "energyPipe");
+    energyPipe->addMarSystem( mng.create("Square", "square") );
+    energyPipe->addMarSystem( mng.create("Mean", "mean") );
+
     MarSystem *windowFan = mng.create("Fanout", "windowFan");
     windowFan->addMarSystem( spectrumPipe );
-    windowFan->addMarSystem( mng.create("Energy", "energy") );
+    windowFan->addMarSystem( energyPipe );
 
+    MarSystem *classificationPipe = mng.create("Series", "classificationPipe");
+    classificationPipe->addMarSystem( mng.create("EtnoMuseClassifier", "classifier") );
+    classificationPipe->addMarSystem( vampSink );
+
+    MarSystem *statBuffer = mng.create("Buffer", "statBuffer");
+    statBuffer->addMarSystem( classificationPipe );
+
+#if 0
     MarSystem *statPipe = mng.create("Parallel", "statPipe");
     statPipe->addMarSystem( mng.create("Mean", "meanEntropy") );
     statPipe->addMarSystem( mng.create("Mean", "meanMfcc2") );
@@ -292,18 +232,18 @@ void MarPlugin::createPipeline()
     statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc3") );
     statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc4") );
     statPipe->addMarSystem( mng.create("Mean", "meanEnergy") );
+#endif
 
     MarSystem *windowedPipe = mng.create("Series", "windowedPipe");
     windowedPipe->addMarSystem( windowFan );
-    windowedPipe->addMarSystem( mng.create("Memory", "statBuffer") );
-    windowedPipe->addMarSystem( statPipe );
-    windowedPipe->addMarSystem( vampSink );
+    //windowedPipe->addMarSystem( vampSink );
+    windowedPipe->addMarSystem( statBuffer );
 
     MarSystem *winBuffer = mng.create("Buffer", "winBuffer");
     winBuffer->addMarSystem( windowedPipe );
 
     m_pipeline = mng.create("Series", "pipeline");
-    m_pipeline->addMarSystem( mng.create("ResampleLinear", "resampler") );
+    m_pipeline->addMarSystem( mng.create("ResampleSinc", "resampler") );
     m_pipeline->addMarSystem( winBuffer );
 
     // set controls
@@ -311,19 +251,26 @@ void MarPlugin::createPipeline()
     m_pipeline->setControl( "mrs_real/israte", m_inputInfo.sampleRate );
     m_pipeline->setControl( "mrs_natural/inSamples", m_inputInfo.blockSize );
 
-    m_pipeline->setControl( "ResampleLinear/resampler/mrs_real/stretch", m_pipeInfo.sampleRate / m_inputInfo.sampleRate );
+    m_pipeline->setControl( "ResampleSinc/resampler/mrs_real/stretch", m_pipeInfo.sampleRate / m_inputInfo.sampleRate );
 
     winBuffer->setControl( "mrs_natural/blockSize", m_pipeInfo.blockSize );
     winBuffer->setControl( "mrs_natural/hopSize", m_pipeInfo.stepSize );
 
-    windowedPipe->setControl( "Memory/statBuffer/mrs_natural/memSize", 1 );
+    statBuffer->setControl( "mrs_natural/blockSize", m_pipeInfo.statBlockSize );
+    statBuffer->setControl( "mrs_natural/hopSize", m_pipeInfo.statStepSize );
 
-    mfccPipe->setControl( "MFCC/mfcc/mrs_natural/coefficients", m_pipeInfo.mfccCount );
+    trendPipe->setControl( "Memory/buffer/mrs_natural/memSize", 5 );
+
+    mfccPipe->setControl( "MyMFCC/mfcc/mrs_natural/coefficients", m_pipeInfo.mfccCount );
     mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/lowCutoff", (float) 2 / (m_pipeInfo.mfccCount-1) );
     mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/highCutoff", (float) 4 / (m_pipeInfo.mfccCount-1) );
 
-    int featureFrames = std::ceil( m_pipeInfo.stepSize * (m_inputInfo.sampleRate / m_pipeInfo.sampleRate) );
+    int featureFrames = std::ceil(
+        m_pipeInfo.stepSize * m_pipeInfo.statStepSize
+        * (m_inputInfo.sampleRate / m_pipeInfo.sampleRate) );
+
     double featureDistance = (double) featureFrames / m_inputInfo.sampleRate;
+
     vampSink->setControl( "mrs_real/featureDistance", featureDistance );
 
     m_pipeline->update();
@@ -335,11 +282,15 @@ void MarPlugin::createPipeline()
 
     m_inputVector.allocate( 1, m_inputInfo.blockSize );
     m_outputVector.allocate( outObservationCount, outSampleCount );
+
+    m_vampSink = vampSink;
 }
 
 void MarPlugin::deletePipeline()
 {
     delete(m_pipeline);
+    m_pipeline = 0;
+    m_vampSink = 0;
 }
 
 void MarPlugin::pipeProcess( const float *input )
