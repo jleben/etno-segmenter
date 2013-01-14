@@ -72,7 +72,7 @@ EtnoMuseClassifier::addControls()
 void
 EtnoMuseClassifier::myUpdate(MarControlPtr sender)
 {
-    setControl("mrs_natural/onObservations", s_classCount);
+    setControl("mrs_natural/onObservations", 1);
     setControl("mrs_natural/onSamples", 1);
     setControl("mrs_real/osrate", getControl("mrs_real/israte"));
 
@@ -169,9 +169,11 @@ EtnoMuseClassifier::myProcess(realvec& in, realvec& out)
         p[nJ] /= sum;
     p[s_classCount - 1] = 1/sum;
     
+#if 0
     for (int o = 0; o < s_classCount; ++o)
         out(o, 0) = p[o];
-#if 0
+#endif
+//#if 0
     // Get the "mean" class index
     float meanClass = 0;
     for (int i = 0; i < s_classCount; ++i)
@@ -179,7 +181,7 @@ EtnoMuseClassifier::myProcess(realvec& in, realvec& out)
     meanClass /= s_classCount - 1;
     
     out(0,0) = meanClass;
-#endif
+//#endif
 }
 
 } // namespace Marsyas
