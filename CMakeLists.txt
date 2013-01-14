@@ -10,6 +10,7 @@ set( plugin_src
     modules/classification.cpp
     marsystems/buffer.cpp
     marsystems/linear_trend.cpp
+    marsystems/mfcc.cpp
     marsystems/chromaticentropy.cpp
     marsystems/etno_muse_classifier.cpp
     marsystems/vampsink.cpp
