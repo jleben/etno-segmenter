@@ -20,6 +20,7 @@
 #include "linear_trend.hpp"
 
 #include <marsyas/common.h>
+#include <iostream>
 
 namespace Marsyas {
 
@@ -56,28 +57,35 @@ LinearTrend::myUpdate(MarControlPtr sender)
 {
     MarSystem::myUpdate(sender);
 
-    if (inSamples_ == 1)
+    if (tinSamples_ != inSamples_)
     {
-        m_coeff.resize(1);
-        m_coeff[0] = 1.f;
-    }
-    else if (inSamples_ > 1)
-    {
+        //std::cout << "*** LinearTrend: inSamples_ = " << inSamples_ << std::endl;
+        
         m_coeff.resize( inSamples_ );
-
-        float magnitude = (float) (inSamples_ - 1) / 2.f;
-
-        float sum = 0.f;
-        for (int i = 0; i < inSamples_; ++i) {
-            m_coeff[i] = i - magnitude;
-            sum += m_coeff[i] * m_coeff[i];
+        
+        if (inSamples_ == 1)
+        {
+            m_coeff[0] = 1.f;
         }
+        else if (inSamples_ > 1)
+        {
+            float magnitude = (float) (inSamples_ - 1) / 2.f;
+
+            float sum = 0.f;
+            for (int i = 0; i < inSamples_; ++i) {
+                m_coeff[i] = i - magnitude;
+                sum += m_coeff[i] * m_coeff[i];
+            }
+            for (int i = 0; i < inSamples_; ++i)
+                m_coeff[i] = m_coeff[i] / sum;
+        }
+        
+#if 0
+        std::cout << "*** linear trend coefficients:" << std::endl;
         for (int i = 0; i < inSamples_; ++i)
-            m_coeff[i] = m_coeff[i] / sum;
-    }
-    else
-    {
-        m_coeff.clear();
+            std::cout << " " << m_coeff[i];
+        std::cout << std::endl;
+#endif
     }
 
     setControl( "mrs_natural/onSamples", 1 );
