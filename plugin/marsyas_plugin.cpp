@@ -1,5 +1,6 @@
 #include "marsyas_plugin.hpp"
 #include "../marsystems/buffer.hpp"
+#include "../marsystems/chromaticentropy.hpp"
 #include "../marsystems/vampsink.hpp"
 
 #include <marsyas/MarSystemManager.h>
@@ -125,7 +126,7 @@ Vamp::Plugin::OutputList MarPlugin::getOutputDescriptors() const
     out.sampleType = OutputDescriptor::FixedSampleRate;
     out.sampleRate = featureSampleRate;
     out.hasFixedBinCount = true;
-    out.binCount = 7;
+    out.binCount = 9;
 
     outputs.push_back(out);
 
@@ -136,7 +137,7 @@ Vamp::Plugin::FeatureSet MarPlugin::process(const float *const *inputBuffers, Va
 {
     m_featureSet.clear();
 
-    process( inputBuffers[0] );
+    pipeProcess( inputBuffers[0] );
 
     return m_featureSet;
 }
@@ -252,6 +253,9 @@ void MarPlugin::createPipeline()
     MarSystem* protoVampSink = new Marsyas::VampSink("protoVampSink");
     mng.registerPrototype("VampSink", protoVampSink);
 
+    MarSystem* protoChromaticEntropy = new Marsyas::ChromaticEntropy("protoChromaticEntropy");
+    mng.registerPrototype("ChromaticEntropy", protoChromaticEntropy);
+
     // create pipeline
 
     VampSink *vampSink = static_cast<VampSink*>( mng.create("VampSink", "vampSink") );
@@ -261,27 +265,33 @@ void MarPlugin::createPipeline()
     mfccPipe->addMarSystem( mng.create("MFCC", "mfcc") );
     mfccPipe->addMarSystem( mng.create("RemoveObservations", "mfccRange") );
 
-    MarSystem *spectrumCascade = mng.create("Cascade", "cascade");
-    spectrumCascade->addMarSystem( mfccPipe );
-    spectrumCascade->addMarSystem( mng.create("DeltaFirstOrderRegression", "delta") );
+    MarSystem *spectrumProcFan = mng.create("Fanout", "specProcFan");
+    spectrumProcFan->addMarSystem( mng.create("ChromaticEntropy", "entropy") );
+    spectrumProcFan->addMarSystem( mfccPipe );
+
+    MarSystem *spectrumProc = mng.create("Cascade", "specProc");
+    spectrumProc->addMarSystem( spectrumProcFan );
+    spectrumProc->addMarSystem( mng.create("DeltaFirstOrderRegression", "delta") );
 
     MarSystem *spectrumPipe = mng.create("Series", "spectrumPipe");
     spectrumPipe->addMarSystem( mng.create("Spectrum", "spectrum") );
     spectrumPipe->addMarSystem( mng.create("PowerSpectrum", "powerSpectrum") );
-    spectrumPipe->addMarSystem( spectrumCascade );
+    spectrumPipe->addMarSystem( spectrumProc );
 
     MarSystem *windowFan = mng.create("Fanout", "windowFan");
-    windowFan->addMarSystem( mng.create("Energy", "energy") );
     windowFan->addMarSystem( spectrumPipe );
+    windowFan->addMarSystem( mng.create("Energy", "energy") );
 
     MarSystem *statPipe = mng.create("Parallel", "statPipe");
-    statPipe->addMarSystem( mng.create("Mean", "meanEnergy") );
+    statPipe->addMarSystem( mng.create("Mean", "meanEntropy") );
     statPipe->addMarSystem( mng.create("Mean", "meanMfcc2") );
     statPipe->addMarSystem( mng.create("Mean", "meanMfcc3") );
     statPipe->addMarSystem( mng.create("Mean", "meanMfcc4") );
+    statPipe->addMarSystem( mng.create("Mean", "meanDeltaEntropy") );
     statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc2") );
     statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc3") );
     statPipe->addMarSystem( mng.create("Mean", "meanDeltaMfcc4") );
+    statPipe->addMarSystem( mng.create("Mean", "meanEnergy") );
 
     MarSystem *windowedPipe = mng.create("Series", "windowedPipe");
     windowedPipe->addMarSystem( windowFan );
@@ -321,6 +331,8 @@ void MarPlugin::createPipeline()
     int outObservationCount = m_pipeline->getControl( "mrs_natural/onObservations" )->to<mrs_natural>();
     int outSampleCount = m_pipeline->getControl( "mrs_natural/onSamples" )->to<mrs_natural>();
 
+    //std::cout << "*** Marsyas Segmenter: output format = [" << outObservationCount << "/" << outSampleCount << "]" << std::endl;
+
     m_inputVector.allocate( 1, m_inputInfo.blockSize );
     m_outputVector.allocate( outObservationCount, outSampleCount );
 }
@@ -330,7 +342,7 @@ void MarPlugin::deletePipeline()
     delete(m_pipeline);
 }
 
-void MarPlugin::process( const float *input )
+void MarPlugin::pipeProcess( const float *input )
 {
     for (int s = 0; s < m_inputInfo.blockSize; ++s)
     {

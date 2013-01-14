@@ -48,7 +48,7 @@ public:
 private:
     void createPipeline();
     void deletePipeline();
-    void process( const float *input );
+    void pipeProcess( const float *input );
 
     struct {
         float sampleRate;

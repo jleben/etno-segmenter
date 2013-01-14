@@ -9,8 +9,8 @@ set( plugin_src
     plugin/marsyas_plugin.cpp
     modules/classification.cpp
     marsystems/buffer.cpp
-    marsystems/vampsink.cpp
     marsystems/chromaticentropy.cpp
+    marsystems/vampsink.cpp
 )
 
 add_library( plugin MODULE ${plugin_src} )
