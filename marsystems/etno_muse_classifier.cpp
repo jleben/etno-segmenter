@@ -82,6 +82,24 @@ EtnoMuseClassifier::myUpdate(MarControlPtr sender)
     }
 }
 
+static float variance( realvec& row )
+{
+    int n = row.getSize();
+
+    if (n < 2)
+        return 0.f;
+
+    mrs_real *d = row.getData();
+    mrs_real mean = row.mean();
+    float var = 0.f;
+    for (int i = 0; i < n; ++i) {
+        float dev = d[i] - mean;
+        var += dev * dev;
+    }
+    var /= n - 1;
+    return var;
+}
+
 void
 EtnoMuseClassifier::myProcess(realvec& in, realvec& out)
 {
@@ -101,41 +119,41 @@ EtnoMuseClassifier::myProcess(realvec& in, realvec& out)
     */
 
     // Compute statistical features
-    
+
     realvec row;
     mrs_real features[s_inputCount];
-    
+
     in.getRow(0, row);
     features[0] = row.mean();
-    
+
     in.getRow(1, row);
-    features[1] = row.var();
+    features[1] = variance(row);
 
     in.getRow(2, row);
-    features[2] = row.var();
-    
+    features[2] = variance(row);
+
     in.getRow(3, row);
-    features[3] = row.var();
-    
+    features[3] = variance(row);
+
     in.getRow(4, row);
-    features[4] = row.var();
+    features[4] = variance(row);
 
     in.getRow(5, row);
-    features[5] = row.var();
+    features[5] = variance(row);
 
     in.getRow(6, row);
-    features[6] = row.var();
-    
+    features[6] = variance(row);
+
     in.getRow(7, row);
-    features[7] = row.var();
-    
+    features[7] = variance(row);
+
     in.getRow(8, row);
-    mrs_real var8 = row.var();
+    mrs_real var8 = variance(row);
     mrs_real mean8 = row.mean();
     features[8] = mean8 != 0 ? var8 / (mean8 * mean8) : 0;
-    
+
     // Compute class probability distribution
-    
+
     float p[s_classCount];
     float sum = 1;
     for (int nJ = 0; nJ < s_classCount - 1; nJ++)
