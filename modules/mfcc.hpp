@@ -42,7 +42,7 @@ public:
                                    FFTW_REDFT10, FFTW_ESTIMATE);
 
         m_inBuf = new float[windowSize / 2 + 1];
-        m_output.resize(filterCount - 1);
+        m_output.resize(filterCount);
     }
 
     ~Mfcc()
@@ -84,7 +84,7 @@ public:
 
         fftwf_execute( m_plan );
 
-        std::memcpy( m_output.data(), m_dctOut + 1, sizeof(float) * (m_filterCount - 1) );
+        std::memcpy( m_output.data(), m_dctOut, sizeof(float) * m_filterCount );
     }
 
     const std::vector<float> & output() const { return m_output; }

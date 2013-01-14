@@ -84,9 +84,9 @@ public:
     {
         InputFeatures input;
         input.energy = energy;
-        input.mfcc2 = mfcc[1];
-        input.mfcc3 = mfcc[2];
-        input.mfcc4 = mfcc[3];
+        input.mfcc2 = mfcc[2];
+        input.mfcc3 = mfcc[3];
+        input.mfcc4 = mfcc[4];
         input.entropy = entropy;
 
         // populate input buffer;
