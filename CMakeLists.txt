@@ -9,7 +9,9 @@ set( plugin_src
     plugin/marsyas_plugin.cpp
     modules/classification.cpp
     marsystems/buffer.cpp
+    marsystems/linear_trend.cpp
     marsystems/chromaticentropy.cpp
+    marsystems/etno_muse_classifier.cpp
     marsystems/vampsink.cpp
 )
 
