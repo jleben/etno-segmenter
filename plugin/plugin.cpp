@@ -2,6 +2,7 @@
 #include "../modules/resampler.hpp"
 #include "../modules/energy.hpp"
 #include "../modules/spectrum.hpp"
+#include "../modules/mel_spectrum.hpp"
 #include "../modules/mfcc.hpp"
 #include "../modules/entropy.hpp"
 #include "../modules/statistics.hpp"
@@ -23,6 +24,7 @@ Plugin::Plugin(float inputSampleRate):
     m_resampler(0),
     m_energy(0),
     m_spectrum(0),
+    m_melSpectrum(0),
     m_mfcc(0),
     m_entropy(0),
     m_classifier(0),
@@ -133,7 +135,8 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_resampler = new Resampler( m_inputContext.sampleRate, m_procContext.sampleRate );
     m_energy = new Energy( m_procContext.blockSize );
     m_spectrum = new PowerSpectrum( m_procContext.blockSize );
-    m_mfcc = new Mfcc( m_procContext.sampleRate, m_procContext.blockSize, mfccFilterCount );
+    m_melSpectrum = new MelSpectrum( mfccFilterCount, m_procContext.sampleRate,  m_procContext.blockSize );
+    m_mfcc = new Mfcc( mfccFilterCount );
     m_entropy = new ChromaticEntropy( m_procContext.sampleRate, m_procContext.blockSize,
                                       chromEntropyLoFreq, chromEntropyHiFreq );
     m_statistics = new Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
@@ -229,7 +232,8 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 
         m_energy->process( block );
         m_spectrum->process( block );
-        m_mfcc->process( m_spectrum->output() );
+        m_melSpectrum->process( m_spectrum->output() );
+        m_mfcc->process( m_melSpectrum->output() );
         m_entropy->process( m_spectrum->output() );
         m_statistics->process( m_energy->output(), m_entropy->output(), m_mfcc->output(), m_statsBuffer );
 
@@ -284,6 +288,8 @@ void Plugin::deleteModules()
     m_energy = 0;
     delete m_spectrum;
     m_spectrum = 0;
+    delete m_melSpectrum;
+    m_melSpectrum = 0;
     delete m_mfcc;
     m_mfcc = 0;
     delete m_entropy;

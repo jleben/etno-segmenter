@@ -11,6 +11,7 @@ namespace Segmenter {
 
 class Resampler;
 class PowerSpectrum;
+class MelSpectrum;
 class Mfcc;
 class ChromaticEntropy;
 class Statistics;
@@ -67,6 +68,7 @@ private:
     Resampler * m_resampler;
     Energy * m_energy;
     PowerSpectrum * m_spectrum;
+    MelSpectrum * m_melSpectrum;
     Mfcc * m_mfcc;
     ChromaticEntropy * m_entropy;
     Statistics *m_statistics;
