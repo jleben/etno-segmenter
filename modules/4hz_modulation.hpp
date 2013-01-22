@@ -18,7 +18,7 @@ class FourHzModulation : public Module
     float m_output;
 
 public:
-    FourHzModulation( float sampleRate, int hopSize ):
+    FourHzModulation( float sampleRate, int windowSize, int hopSize ):
         m_iBufWrite(0),
         m_output(0.f)
     {
@@ -30,15 +30,21 @@ public:
         for (int i = 0; i < nFilter; ++i)
             m_filter.push_back( cos( 4 * 2 * pi * i * dt ) );
 
+        int spectrumSize = windowSize / 2 + 1;
         m_buf.resize( nFilter );
+        for (int i = 0; i < nFilter; ++i)
+            m_buf[i].resize(spectrumSize);
     }
 
     void process( const std::vector<float> & melSpectrum )
     {
-        m_buf[m_iBufWrite] = melSpectrum;
-        ++m_iBufWrite;
         int nSpectrum = melSpectrum.size();
         int nFilter = m_filter.size();
+
+        std::memcpy( m_buf[m_iBufWrite].data(), melSpectrum.data(), nSpectrum * sizeof(float) );
+        ++m_iBufWrite;
+        if (m_iBufWrite >= nFilter)
+            m_iBufWrite = 0;
 
         float filteredSpectrumEnergy = 0.f;
 
