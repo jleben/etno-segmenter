@@ -9,7 +9,7 @@
 
 namespace Segmenter {
 
-class RealCepstrum
+class RealCepstrum : public Module
 {
     fftwf_plan m_plan;
     float *m_fft_in;
@@ -21,7 +21,7 @@ class RealCepstrum
 
 public:
 
-    RealCepstrum( int windowSize ) : public Module
+    RealCepstrum( int windowSize )
     {
         m_bufSize = (windowSize / 2) + 1;
 
