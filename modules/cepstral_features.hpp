@@ -1,7 +1,7 @@
 #ifndef SEGMENTER_CEPSTRAL_FEATURES_INCLUDED
 #define SEGMENTER_CEPSTRAL_FEATURES_INCLUDED
 
-#include "module.h"
+#include "module.hpp"
 
 #include <cmath>
 #include <vector>
@@ -56,7 +56,7 @@ public:
 
         // find first N partials (spectral values) corresponding to highest cepstral value
         float partials[5];
-        nPartials = 5;
+        int nPartials = 5;
         for (int iPartial = 0; iPartial < nPartials; ++iPartial)
         {
             int iSpectrum = (int) (iPartial * ratioC2S) + 1;
