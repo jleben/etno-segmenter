@@ -30,13 +30,9 @@ public:
         m_output.resize(coefficientCount);
     }
 
-    void process( const std::vector<float> & powerSpectrum )
+    void process( const std::vector<float> & spectrumMagnitude )
     {
-        const int spectrumSize = powerSpectrum.size();
         const int filterBankSize = m_melFilterBank.size();
-
-        for (int idx = 0; idx < spectrumSize; ++idx)
-            m_input[idx] = std::sqrt( powerSpectrum[idx] );
 
         for (int filterIdx = 0; filterIdx < filterBankSize; ++filterIdx)
         {
@@ -46,7 +42,7 @@ public:
             float filterOut = 0;
 
             for (int idx = 0; idx < coeffCount; ++idx)
-                filterOut += filter.coeff[idx] * m_input[filter.offset + idx];
+                filterOut += filter.coeff[idx] * spectrumMagnitude[filter.offset + idx];
 
             m_output[filterIdx] = filterOut;
         }
