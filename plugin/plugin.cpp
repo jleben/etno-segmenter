@@ -3,8 +3,11 @@
 #include "../modules/energy.hpp"
 #include "../modules/spectrum.hpp"
 #include "../modules/mel_spectrum.hpp"
+#include "../modules/real_cepstrum.hpp"
 #include "../modules/mfcc.hpp"
 #include "../modules/entropy.hpp"
+#include "../modules/cepstral_features.hpp"
+#include "../modules/4hz_modulation.hpp"
 #include "../modules/statistics.hpp"
 #include "../modules/classification.hpp"
 
@@ -114,7 +117,10 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
     if (blockSize != stepSize)
         return false;
 
-    m_inputContext.blockSize = blockSize;
+    InputContext & in = m_inputContext;
+    ProcessContext & proc = m_procContext;
+
+    in.blockSize = blockSize;
 
     const int mfccFilterCount = 27;
 
@@ -127,17 +133,29 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     m_modules.resize( ModuleCount );
 
-    m_modules[Resampler] = new Segmenter::Resampler( m_inputContext.sampleRate, m_procContext.sampleRate );
-    m_modules[Energy] = new Segmenter::Energy( m_procContext.blockSize );
-    m_modules[PowerSpectrum] = new Segmenter::PowerSpectrum( m_procContext.blockSize );
-    m_modules[MelSpectrum] = new Segmenter::MelSpectrum( mfccFilterCount, m_procContext.sampleRate,  m_procContext.blockSize );
+    m_modules[Resampler] = new Segmenter::Resampler( in.sampleRate, proc.sampleRate );
+    m_modules[Energy] = new Segmenter::Energy( proc.blockSize );
+    m_modules[PowerSpectrum] = new Segmenter::PowerSpectrum( proc.blockSize );
+    m_modules[MelSpectrum] = new Segmenter::MelSpectrum( mfccFilterCount, proc.sampleRate,  proc.blockSize );
     m_modules[Mfcc] = new Segmenter::Mfcc( mfccFilterCount );
-    m_modules[ChromaticEntropy] = new Segmenter::ChromaticEntropy( m_procContext.sampleRate, m_procContext.blockSize,
+    m_modules[ChromaticEntropy] = new Segmenter::ChromaticEntropy( proc.sampleRate, proc.blockSize,
                                                           chromEntropyLoFreq, chromEntropyHiFreq );
     m_modules[Statistics] = new Segmenter::Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
     m_modules[Classifier] = new Segmenter::Classifier();
 
+#if SEGMENTER_NEW_FEATURES
+    m_modules[RealCepstrum] = new Segmenter::RealCepstrum( proc.blockSize );
+    m_modules[CepstralFeatures] = new Segmenter::CepstralFeatures( proc.sampleRate, proc.blockSize );
+    m_modules[FourHzModulation] = new Segmenter::FourHzModulation( proc.sampleRate, proc.blockSize, proc.stepSize );
+#endif
+
     initStatistics();
+
+    int featureFrames = std::ceil(
+        m_procContext.stepSize
+        * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
+
+    m_featureDuration = Vamp::RealTime::frame2RealTime( featureFrames, m_inputContext.sampleRate );
 }
 
 void Plugin::reset()
@@ -153,7 +171,7 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     OutputList list;
 
     int featureFrames = std::ceil(
-        m_procContext.stepSize /* * m_pipeInfo.statStepSize*/
+        m_procContext.stepSize
         * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
 
     double featureSampleRate = (double) m_inputContext.sampleRate / featureFrames;
@@ -162,11 +180,10 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outStat.identifier = "features";
     outStat.name = "Features";
     outStat.hasFixedBinCount = true;
-    outStat.binCount = 5;
+    outStat.binCount = 1;
     outStat.sampleType = OutputDescriptor::FixedSampleRate;
     outStat.sampleRate = featureSampleRate;
     list.push_back(outStat);
-
 
     OutputDescriptor outClasses;
     outClasses.hasFixedBinCount = true;
@@ -211,6 +228,11 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
     Segmenter::ChromaticEntropy *chromaticEntropy = static_cast<Segmenter::ChromaticEntropy*>( module(ChromaticEntropy) );
     Segmenter::Statistics *statistics = static_cast<Segmenter::Statistics*>( module(Statistics) );
     Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( module(Classifier) );
+#if SEGMENTER_NEW_FEATURES
+    Segmenter::FourHzModulation *fourHzMod = static_cast<Segmenter::FourHzModulation*>( module(FourHzModulation) );
+    Segmenter::RealCepstrum *realCepstrum = static_cast<Segmenter::RealCepstrum*>( module(RealCepstrum) );
+    Segmenter::CepstralFeatures *cepstralFeatures = static_cast<Segmenter::CepstralFeatures*>( module(CepstralFeatures) );
+#endif
 
     bool endOfStream = input == 0;
 
@@ -235,21 +257,49 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         const float *block = m_resampBuffer.data() + blockFrame;
 
         energy->process( block );
+
         powerSpectrum->process( block );
-        melSpectrum->process( powerSpectrum->output() );
+
+        const std::vector<float> & powerSpectrumOut = powerSpectrum->output();
+        int nSpectrum = powerSpectrumOut.size();
+        m_spectrumMag.resize( nSpectrum );
+        for (int i = 0; i < nSpectrum; ++i)
+            m_spectrumMag[i] = std::sqrt( powerSpectrumOut[i] );
+
+        melSpectrum->process( m_spectrumMag );
+
         mfcc->process( melSpectrum->output() );
+
         chromaticEntropy->process( powerSpectrum->output() );
+
+#if SEGMENTER_NEW_FEATURES
+        fourHzMod->process( melSpectrum->output() );
+
+        realCepstrum->process( m_spectrumMag );
+
+        cepstralFeatures->process( powerSpectrum->output(), realCepstrum->output() );
+#endif
+
         statistics->process( energy->output(), chromaticEntropy->output(),
                                      mfcc->output(), m_statsBuffer );
 
         Feature basicFeatures;
+        basicFeatures.hasTimestamp = true;
+        basicFeatures.timestamp = m_featureTime;
+#if SEGMENTER_NEW_FEATURES
+        basicFeatures.values.push_back( fourHzMod->output() );
+#endif
+        /*
         basicFeatures.values.push_back( chromaticEntropy->output() );
         basicFeatures.values.push_back( mfcc->output()[2] );
         basicFeatures.values.push_back( mfcc->output()[3] );
         basicFeatures.values.push_back( mfcc->output()[4] );
         basicFeatures.values.push_back( energy->output() );
+        */
 
         features[0].push_back(basicFeatures);
+
+        m_featureTime = m_featureTime + m_featureDuration;
     }
 
     if (endOfStream)

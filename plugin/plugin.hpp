@@ -7,6 +7,8 @@
 #include <vamp-sdk/Plugin.h>
 #include <vector>
 
+#define SEGMENTER_NEW_FEATURES 1
+
 namespace Segmenter {
 
 class Plugin : public Vamp::Plugin
@@ -64,6 +66,12 @@ private:
         Statistics,
         Classifier,
 
+#if SEGMENTER_NEW_FEATURES
+        RealCepstrum,
+        CepstralFeatures,
+        FourHzModulation,
+#endif
+
         ModuleCount
     };
 
@@ -77,8 +85,11 @@ private:
     int m_statStepSize;
     Vamp::RealTime m_statsStepDuration;
     Vamp::RealTime m_statsTime;
+    Vamp::RealTime m_featureDuration;
+    Vamp::RealTime m_featureTime;
 
     std::vector<float> m_resampBuffer;
+    std::vector<float> m_spectrumMag;
     std::vector<Statistics::OutputFeatures> m_statsBuffer;
 
     void initStatistics()
