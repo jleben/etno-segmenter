@@ -22,7 +22,7 @@ public:
         m_iBufWrite(0),
         m_output(0.f)
     {
-        static const double pi = Segmenter::pi();
+        const double pi = Segmenter::pi();
 
         double dt = hopSize / (double) sampleRate;
         int nFilter = std::ceil( 0.5 / dt );
