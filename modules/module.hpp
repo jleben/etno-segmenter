@@ -1,6 +1,8 @@
 #ifndef SEGMENTER_MODULE_HPP_INCLUDED
 #define SEGMENTER_MODULE_HPP_INCLUDED
 
+#include <cmath>
+
 namespace Segmenter {
 
 struct ProcessContext {
@@ -15,6 +17,11 @@ class Module
 public:
     virtual ~Module() {}
 };
+
+inline double pi() {
+    static double s_pi (4.0 * std::atan2(1.0, 1.0));
+    return s_pi;
+}
 
 } // namespace Segmenter
 

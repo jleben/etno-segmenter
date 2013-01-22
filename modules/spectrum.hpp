@@ -28,11 +28,11 @@ public:
         m_plan = fftwf_plan_r2r_1d(windowSize, m_inBuffer, m_outBuffer,
                                    FFTW_R2HC, FFTW_ESTIMATE);
 
-        static const double PI (4.0 * std::atan2(1.0, 1.0));
+        double pi = Segmenter::pi();
 
         m_window = new float[windowSize];
         for (int idx=0; idx < windowSize; ++idx)
-            m_window[idx] = 0.54 - 0.46 * std::cos(2 * PI * idx / (windowSize-1) );
+            m_window[idx] = 0.54 - 0.46 * std::cos(2 * pi * idx / (windowSize-1) );
 
         m_output.resize(windowSize / 2 + 1);
     }
