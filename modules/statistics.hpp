@@ -10,20 +10,26 @@ namespace Segmenter {
 class Statistics : public Module
 {
 public:
-    /*
-    struct OutputFeatures {
-        float entropyMean;
-        float mfcc2Var;
-        float mfcc3Var;
-        float mfcc4Var;
-        float deltaEntropyVar;
-        float deltaMfcc2Var;
-        float deltaMfcc3Var;
-        float deltaMfcc4Var;
-        float energyFlux;
-    };
-    */
+
     enum OutputFeature {
+#if SEGMENTER_NEW_FEATURES
+        ENTROPY_MEAN = 0,
+        PITH_DENSITY_MEAN,
+        TONALITY_MEAN,
+        TONALITY1_MEAN,
+        FOUR_HZ_MOD_MEAN,
+        MFCC2_MEAN,
+        MFCC3_MEAN,
+        MFCC4_MEAN,
+        ENTROPY_DELTA_VAR,
+        TONALITY_FLUCT,
+        MFCC2_STD,
+        MFCC3_STD,
+        MFCC4_STD,
+        MFCC2_DELTA_STD,
+        MFCC3_DELTA_STD,
+        MFCC4_DELTA_STD,
+#else
         ENTROPY_MEAN = 0,
         MFCC2_VAR,
         MFCC3_VAR,
@@ -33,8 +39,23 @@ public:
         MFCC3_DELTA_VAR,
         MFCC4_DELTA_VAR,
         ENERGY_FLUX,
+#endif
 
         OUTPUT_FEATURE_COUNT
+    };
+
+    struct InputFeatures {
+        float energy;
+        float entropy;
+#if SEGMENTER_NEW_FEATURES
+        float pitchDensity;
+        float tonality;
+        float tonality1;
+        float fourHzMod;
+#endif
+        float mfcc2;
+        float mfcc3;
+        float mfcc4;
     };
 
     struct OutputFeatures {
@@ -44,22 +65,12 @@ public:
         const float & operator [] (int i) const { return features[i]; }
     };
 
-    //typedef float OutputFeatures [OUTPUT_FEATURE_COUNT];
-
 private:
     struct DeltaFeatures {
         float entropy;
         float mfcc2;
         float mfcc3;
         float mfcc4;
-    };
-
-    struct InputFeatures {
-        float entropy;
-        float mfcc2;
-        float mfcc3;
-        float mfcc4;
-        float energy;
     };
 
     int m_windowSize;
@@ -82,15 +93,8 @@ public:
         initDeltaFilter( deltaWindowSize );
     }
 
-    void process ( float energy, float entropy, const std::vector<float> & mfcc, std::vector<OutputFeatures> & outBuffer )
+    void process ( const InputFeatures & input, std::vector<OutputFeatures> & outBuffer )
     {
-        InputFeatures input;
-        input.energy = energy;
-        input.mfcc2 = mfcc[2];
-        input.mfcc3 = mfcc[3];
-        input.mfcc4 = mfcc[4];
-        input.entropy = entropy;
-
         // populate input buffer;
         // pad beginning and end for the purpose of delta computations
         if (m_first) {
@@ -157,6 +161,26 @@ private:
 
             OutputFeatures output;
 
+#if SEGMENTER_NEW_FEATURES
+            output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
+            output[PITH_DENSITY_MEAN] = mean( INPUT_VECTOR(pitchDensity) );
+            output[TONALITY_MEAN] = mean( INPUT_VECTOR(tonality) );
+            output[TONALITY1_MEAN] = mean( INPUT_VECTOR(tonality1) );
+            output[FOUR_HZ_MOD_MEAN] = mean( INPUT_VECTOR(fourHzMod) );
+            output[MFCC2_MEAN] = mean( INPUT_VECTOR(mfcc2) );
+            output[MFCC3_MEAN] = mean( INPUT_VECTOR(mfcc3) );
+            output[MFCC4_MEAN] = mean( INPUT_VECTOR(mfcc4) );
+            output[ENTROPY_DELTA_VAR] = variance( DELTA_VECTOR(entropy) );
+            float tonalityMean = output[TONALITY_MEAN];
+            float tonalityVar = variance( INPUT_VECTOR(tonality), tonalityMean );
+            output[TONALITY_FLUCT] = tonalityMean != 0.f ? tonalityVar / (tonalityMean * tonalityMean) : 0.f;
+            output[MFCC2_STD] = stdDev( INPUT_VECTOR(mfcc2), output[MFCC2_MEAN] );
+            output[MFCC3_STD] = stdDev( INPUT_VECTOR(mfcc3), output[MFCC3_MEAN] );
+            output[MFCC4_STD] = stdDev( INPUT_VECTOR(mfcc4), output[MFCC4_MEAN] );
+            output[MFCC2_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc2) );
+            output[MFCC3_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc3) );
+            output[MFCC4_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc4) );
+#else
             output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
             output[MFCC2_VAR] = variance( INPUT_VECTOR(mfcc2 ) );
             output[MFCC3_VAR] = variance( INPUT_VECTOR(mfcc3 ) );
@@ -168,6 +192,7 @@ private:
             float energyMean = mean( INPUT_VECTOR(energy) );
             float energyVar = variance( INPUT_VECTOR(energy), energyMean );
             output[ENERGY_FLUX] = energyMean != 0.f ? energyVar / (energyMean * energyMean) : 0.f;
+#endif
 
             outBuffer.push_back(output);
 
@@ -226,6 +251,18 @@ private:
         }
         variance /= count - 1;
         return variance;
+    }
+
+    float stdDev ( float *vec, int count, int spacing, float mean )
+    {
+        float var = variance(vec, count, spacing, mean);
+        return std::sqrt(var);
+    }
+
+    float stdDev ( float *vec, int count, int spacing )
+    {
+        float var = variance(vec, count, spacing);
+        return std::sqrt(var);
     }
 };
 
