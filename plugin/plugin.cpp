@@ -179,15 +179,21 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     OutputDescriptor outStat;
     outStat.identifier = "features";
     outStat.name = "Features";
-    outStat.hasFixedBinCount = true;
-    outStat.binCount = 1;
     outStat.sampleType = OutputDescriptor::FixedSampleRate;
     outStat.sampleRate = featureSampleRate;
+    outStat.hasFixedBinCount = true;
+    outStat.binCount = 1;
+
     list.push_back(outStat);
 
     OutputDescriptor outClasses;
+    outClasses.identifier = "classification";
+    outClasses.name = "Classification";
+    outClasses.sampleType = OutputDescriptor::FixedSampleRate;
+    outClasses.sampleRate = (double) m_procContext.sampleRate / (m_statStepSize * m_procContext.stepSize);
     outClasses.hasFixedBinCount = true;
     outClasses.binCount = 1;
+
     /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
     if (classifier) outClasses.binNames = classifier->classNames();*/
     /*
@@ -198,11 +204,6 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outClasses.maxValue = 5;
     */
 
-    outClasses.sampleType = OutputDescriptor::FixedSampleRate;
-    outClasses.sampleRate = outStat.sampleRate;
-    outClasses.identifier = "classification";
-    outClasses.name = "Classification";
-    outStat.unit = "class";
     list.push_back(outClasses);
 
     return list;
@@ -280,14 +281,28 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         cepstralFeatures->process( powerSpectrum->output(), realCepstrum->output() );
 #endif
 
-        statistics->process( energy->output(), chromaticEntropy->output(),
-                                     mfcc->output(), m_statsBuffer );
+        Statistics::InputFeatures statInput;
+        statInput.energy = energy->output();
+        statInput.entropy = chromaticEntropy->output();
+        statInput.mfcc2 = mfcc->output()[2];
+        statInput.mfcc3 = mfcc->output()[3];
+        statInput.mfcc4 = mfcc->output()[4];
+
+#if SEGMENTER_NEW_FEATURES
+        statInput.pitchDensity = cepstralFeatures->pitchDensity();
+        statInput.tonality = cepstralFeatures->tonality();
+        statInput.tonality1 = cepstralFeatures->tonality1();
+        statInput.fourHzMod = fourHzMod->output();
+#endif
+
+        statistics->process( statInput, m_statsBuffer );
 
         Feature basicFeatures;
         basicFeatures.hasTimestamp = true;
         basicFeatures.timestamp = m_featureTime;
 #if SEGMENTER_NEW_FEATURES
-        basicFeatures.values.push_back( fourHzMod->output() );
+        //basicFeatures.values.push_back( fourHzMod->output() );
+        basicFeatures.values.push_back( cepstralFeatures->tonality() );
 #endif
         /*
         basicFeatures.values.push_back( chromaticEntropy->output() );
@@ -308,7 +323,7 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
     for (int i = 0; i < m_statsBuffer.size(); ++i)
     {
         const Statistics::OutputFeatures & stat = m_statsBuffer[i];
-
+//#if 0
         classifier->process( stat.features );
 
         const std::vector<float> & distribution = classifier->probabilities();
@@ -316,13 +331,17 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         for (int i = 0; i < distribution.size(); ++i)
             avgClass += distribution[i] * i;
         avgClass /= distribution.size() - 1;
-
+//#endif
         Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
         classification.values.push_back( avgClass );
-        //classification.label = "x";
-        //classification.values = classifier->probabilities();
+        //classification.values = distribution;
+
+        //classification.values.push_back( stat[ Statistics::TONALITY1_MEAN ] );
+
+        //classification.values.resize( Statistics::OUTPUT_FEATURE_COUNT );
+        //std::memcpy( classification.values.data(), &stat.features[0], Statistics::OUTPUT_FEATURE_COUNT * sizeof(float) );
 
         features[1].push_back( classification );
 
