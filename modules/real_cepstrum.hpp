@@ -6,6 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <fftw3.h>
+#include <cassert>
 
 namespace Segmenter {
 
@@ -18,11 +19,14 @@ class RealCepstrum : public Module
     int m_bufSize;
 
     std::vector<float> m_output;
+    float m_outputScale;
 
 public:
 
     RealCepstrum( int windowSize )
     {
+        assert( windowSize >= 2 );
+
         m_bufSize = (windowSize / 2) + 1;
 
         m_fft_in = fftwf_alloc_real(m_bufSize);
@@ -34,6 +38,8 @@ public:
             m_fft_in[i] = 0.f;
 
         m_output.resize(m_bufSize);
+
+        m_outputScale = 1.f / std::sqrt( 2 * m_bufSize );
     }
 
     ~RealCepstrum()
@@ -58,7 +64,7 @@ public:
         fftwf_execute( m_plan );
 
         for (int i = 0; i < nSpectrum; ++i)
-            m_output[i] = m_fft_out[i] * 0.5f;
+            m_output[i] = m_fft_out[i] * m_outputScale * 0.5f;
     }
 
     const std::vector<float> & output() const { return m_output; }
