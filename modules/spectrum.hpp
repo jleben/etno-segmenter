@@ -8,6 +8,8 @@
 #include <cstring>
 #include <fftw3.h>
 
+#define ALTERNATIVE_WINDOWING 1
+
 namespace Segmenter {
 
 class PowerSpectrum : public Module
@@ -18,6 +20,9 @@ class PowerSpectrum : public Module
     float *m_outBuffer;
     float *m_window;
     std::vector<float> m_output;
+#if ALTERNATIVE_WINDOWING
+    float m_outputScale;
+#endif
 
 public:
     PowerSpectrum( int windowSize ):
@@ -31,8 +36,19 @@ public:
         double pi = Segmenter::pi();
 
         m_window = new float[windowSize];
+#if ALTERNATIVE_WINDOWING
+        float sumWindow = 0.f;
+        for (int idx=0; idx < windowSize; ++idx) {
+            m_window[idx] = std::cos( 2 * pi * ( (float) idx / (windowSize - 1) + 0.5 ) );
+            m_window[idx] *= 0.5;
+            m_window[idx] += 0.5;
+            sumWindow += m_window[idx];
+        }
+        m_outputScale = 1.f / std::sqrt( sumWindow );
+#else
         for (int idx=0; idx < windowSize; ++idx)
             m_window[idx] = 0.54 - 0.46 * std::cos(2 * pi * idx / (windowSize-1) );
+#endif
 
         m_output.resize(windowSize / 2 + 1);
     }
@@ -55,18 +71,33 @@ public:
         float * fft = m_outBuffer;
         const int winSize = m_windowSize;
 
-        out[0] = fft[0] * fft[0];
+        float r, i; // real and imaginary parts
+
+        r = fft[0];
+        out[0] = r * r;
+#if ALTERNATIVE_WINDOWING
+        out[0] *= m_outputScale;
+#endif
 
         const int pairCount = (winSize + 1) / 2;
         for (int idx = 1; idx < pairCount; ++idx)
         {
-            out[idx] = fft[idx] * fft[idx] + fft[winSize - idx] * fft[winSize - idx];
+            r = fft[idx];
+            i = fft[winSize - idx];
+            out[idx] = r * r + i * i;
+#if ALTERNATIVE_WINDOWING
+            out[idx] *= m_outputScale;
+#endif
         }
 
         if (winSize % 2 == 0)
         {
             const int lastIdx = winSize / 2;
-            out[lastIdx] = fft[lastIdx] * fft[lastIdx];
+            r = fft[lastIdx];
+            out[lastIdx] = r * r;
+#if ALTERNATIVE_WINDOWING
+            out[lastIdx] *= m_outputScale;
+#endif
         }
     }
 
