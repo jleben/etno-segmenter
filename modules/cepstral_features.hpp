@@ -5,6 +5,9 @@
 
 #include <cmath>
 #include <vector>
+#include <algorithm>
+#include <iostream>
+
 
 namespace Segmenter {
 
@@ -66,34 +69,34 @@ public:
             }
             partials[iPartial] = powerSpectrum[iSpectrum];
         }
+#if 0
+        std::cout << "partials:  ";
+        for (int iPartial = 0; iPartial < nPartials; ++iPartial)
+            std::cout << partials[iPartial] << "  ";
+        std::cout << std::endl;
+#endif
 
         // find N highest spectral values
-        float maxBins[5];
-        std::memset( &maxBins, 0, 5 * sizeof(float) );
-        for (int iBin = 0; iBin < nSpectrum; ++iBin)
-        {
-            float bin = powerSpectrum[iBin];
-            for (int iMaxBin = 0; iMaxBin < nPartials; ++iMaxBin)
-            {
-                if (bin > maxBins[iMaxBin]) {
-                    for(int iSmallerBin = iMaxBin; iSmallerBin > 0; --iSmallerBin)
-                        maxBins[iSmallerBin-1] = maxBins[iSmallerBin];
-                    maxBins[iMaxBin] = bin;
-                    break;
-                }
-            }
-        }
-
+        float highest[5];
+        std::partial_sort_copy( powerSpectrum.begin(), powerSpectrum.end(),
+                                &highest[0], &highest[nPartials],
+                                std::greater<float>() );
+#if 0
+        std::cout << "highest:  ";
+        for (int iHighest = 0; iHighest < nPartials; ++iHighest)
+            std::cout << highest[iHighest] << "  ";
+        std::cout << std::endl;
+#endif
         // sum N heighest spectral values
-        float sumMaxBins = 0.f;
-        for (int iMaxBin = 0; iMaxBin < nPartials; ++iMaxBin)
-            sumMaxBins += maxBins[iMaxBin];
+        float sumHighest = 0.f;
+        for (int iHighest = 0; iHighest < nPartials; ++iHighest)
+            sumHighest += highest[iHighest];
 
         // sum partial values relative to sum of heighest spectral values
         float sumRelativePartials = 0.f;
-        if (sumMaxBins > 0.f) {
+        if (sumHighest > 0.f) {
             for (int iPartial = 0; iPartial < nPartials; ++iPartial)
-                sumRelativePartials += partials[iPartial] / sumMaxBins;
+                sumRelativePartials += partials[iPartial] / sumHighest;
         }
 
         m_tonality = cepsMax;
