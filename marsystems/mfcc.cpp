@@ -83,24 +83,28 @@ MyMFCC::myUpdate(MarControlPtr sender)
     static const double fh = 0.5;
     static const double fl = 0;
 
-    mrs_natural filterCount = getControl("mrs_natural/coefficients")->to<mrs_natural>();
-    mrs_natural windowSize = 2 * (inObservations_ - 1);
-    mrs_real sampleRate = israte_ * windowSize;
+    mrs_natural filterCount = inObservations_;
 
-    if (filterCount < 1 || windowSize < 1) {
+    //mrs_natural filterCount = getControl("mrs_natural/coefficients")->to<mrs_natural>();
+    //mrs_natural windowSize = 2 * (inObservations_ - 1);
+    //mrs_real sampleRate = israte_ * windowSize;
+
+    if (filterCount < 1 ) //|| windowSize < 1)
+    {
          // skip unnecessary updates
         m_filterCount = filterCount;
-        m_win = windowSize;
-        m_sr = sampleRate;
+        //m_win = windowSize;
+        //m_sr = sampleRate;
         return;
     }
 
-    cout << "*** MyMFCC: sampleRate = " << sampleRate << endl;
-
+    //cout << "*** MyMFCC: sampleRate = " << sampleRate << endl;
+/*
     if (filterCount != m_filterCount || windowSize != m_win || sampleRate != m_sr)
     {
         initMelFilters(filterCount, windowSize, sampleRate, fl, fh);
     }
+*/
     if (filterCount != m_filterCount)
     {
         fftwf_free(m_dctIn);
@@ -112,17 +116,19 @@ MyMFCC::myUpdate(MarControlPtr sender)
         m_plan = fftwf_plan_r2r_1d(filterCount, m_dctIn, m_dctOut,
                                     FFTW_REDFT10, FFTW_ESTIMATE);
     }
+    /*
     if ( windowSize != m_win )
     {
         m_buf.allocate( inObservations_ );
     }
+    */
 
     setControl("mrs_natural/onObservations", filterCount);
     setControl("mrs_natural/onSamples", inSamples_);
 
     m_filterCount = filterCount;
-    m_win = windowSize;
-    m_sr = sampleRate;
+    //m_win = windowSize;
+    //m_sr = sampleRate;
 }
 
 void
@@ -133,10 +139,11 @@ MyMFCC::myProcess(realvec& in, realvec& out)
         return;
     }
 
-    static const float ath = 1.0f/65536;
+    static const double ath = 1.0f/65536;
 
     for (int t = 0; t < inSamples_; ++t)
     {
+        /*
         for (int o = 0; o < inObservations_; ++o)
             m_buf(o) = std::sqrt( in(o,t) );
 
@@ -157,6 +164,12 @@ MyMFCC::myProcess(realvec& in, realvec& out)
             filterOut = std::log(filterOut);
 
             m_dctIn[filterIdx] = filterOut;
+        }
+        */
+
+        for (int filterIdx = 0; filterIdx < m_filterCount; ++filterIdx)
+        {
+            m_dctIn[filterIdx] = std::log( std::max(ath, in(filterIdx,t)) );
         }
 
         fftwf_execute( m_plan );

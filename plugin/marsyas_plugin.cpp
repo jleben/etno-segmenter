@@ -151,6 +151,7 @@ Vamp::Plugin::FeatureSet MarPlugin::process(const float *const *inputBuffers, Va
 
 Vamp::Plugin::FeatureSet MarPlugin::getRemainingFeatures()
 {
+    std::cout << "*** Segmenter: done!" << std::endl;
     return FeatureSet();
 }
 
@@ -186,8 +187,11 @@ void MarPlugin::createPipeline()
     vampSink->setFeatureSet( &m_featureSet );
 
     MarSystem *mfccPipe = mng.create("Series", "mfccPipe");
+    //mfccPipe->addMarSystem( mng.create("MyMFCC", "mfcc") );
+    mfccPipe->addMarSystem( mng.create("Spectrum2Mel", "melSpectrum") );
     mfccPipe->addMarSystem( mng.create("MyMFCC", "mfcc") );
     mfccPipe->addMarSystem( mng.create("RemoveObservations", "mfccRange") );
+    mfccPipe->setControl( "Spectrum2Mel/melSpectrum/mrs_natural/melBands", m_pipeInfo.mfccCount );
 
     MarSystem *spectrumProcFan = mng.create("Fanout", "specProcFan");
     spectrumProcFan->addMarSystem( mng.create("ChromaticEntropy", "entropy") );
@@ -261,7 +265,7 @@ void MarPlugin::createPipeline()
 
     trendPipe->setControl( "Memory/buffer/mrs_natural/memSize", 5 );
 
-    mfccPipe->setControl( "MyMFCC/mfcc/mrs_natural/coefficients", m_pipeInfo.mfccCount );
+    //mfccPipe->setControl( "MyMFCC/mfcc/mrs_natural/coefficients", m_pipeInfo.mfccCount );
     mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/lowCutoff", (float) 2 / (m_pipeInfo.mfccCount-1) );
     mfccPipe->setControl( "RemoveObservations/mfccRange/mrs_real/highCutoff", (float) 4 / (m_pipeInfo.mfccCount-1) );
 
