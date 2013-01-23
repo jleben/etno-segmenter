@@ -52,13 +52,13 @@ public:
         for (int i = 0; i < nSpectrum; ++i ) {
             float val = std::max( spectrumMagnitude[i], ath );
             val = std::log(val);
-            val *= 0.5;
             m_fft_in[i] = val;
         }
 
         fftwf_execute( m_plan );
 
-        memcpy( m_output.data(), m_fft_out, m_bufSize * sizeof(float) );
+        for (int i = 0; i < nSpectrum; ++i)
+            m_output[i] = m_fft_out[i] * 0.5f;
     }
 
     const std::vector<float> & output() const { return m_output; }
