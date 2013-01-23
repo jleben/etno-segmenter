@@ -1,13 +1,15 @@
 #ifndef SEGMENTER_SPECTRAL_ENTROPY_HPP_INCLUDED
 #define SEGMENTER_SPECTRAL_ENTROPY_HPP_INCLUDED
 
+#include "module.hpp"
+
 #include <vector>
 #include <list>
 #include <cmath>
 
 namespace Segmenter {
 
-class ChromaticEntropy
+class ChromaticEntropy : public Module
 {
     struct Filter {
         int offset;

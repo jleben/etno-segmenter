@@ -1,7 +1,7 @@
 #ifndef SEGMENTER_MFCC_HPP_INCLUDED
 #define SEGMENTER_MFCC_HPP_INCLUDED
 
-//#include "module.hpp"
+#include "module.hpp"
 
 #include <vector>
 #include <cmath>
@@ -9,7 +9,7 @@
 
 namespace Segmenter {
 
-class Mfcc
+class Mfcc : public Module
 {
     fftwf_plan m_plan;
     float *m_dctIn;

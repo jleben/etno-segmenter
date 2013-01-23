@@ -10,21 +10,11 @@ struct ProcessContext {
     int stepSize;
 };
 
-/*class Module
+class Module
 {
-protected:
-    const int m_sampleRate;
-    const int m_channels;
-
 public:
-    Module( int sampleRate, int channels ):
-        m_sampleRate(sampleRate),
-        m_channels(channels)
-    {}
-
-    int sampleRate() const { return m_sampleRate; }
-    int channels() const { return m_channels; }
-};*/
+    virtual ~Module() {}
+};
 
 } // namespace Segmenter
 

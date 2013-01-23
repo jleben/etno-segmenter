@@ -1,7 +1,7 @@
 #ifndef SEGMENTER_RESAMPLER_HPP_INCLUDED
 #define SEGMENTER_RESAMPLER_HPP_INCLUDED
 
-//#include "module.hpp"
+#include "module.hpp"
 
 #include <samplerate.h>
 #include <vector>
@@ -12,7 +12,7 @@ namespace Segmenter {
 
 using std::vector;
 
-class Resampler
+class Resampler : public Module
 {
     const int m_inSampleRate;
     const int m_outSampleRate;

@@ -21,14 +21,6 @@ namespace Segmenter {
 
 Plugin::Plugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
-    m_resampler(0),
-    m_energy(0),
-    m_spectrum(0),
-    m_melSpectrum(0),
-    m_mfcc(0),
-    m_entropy(0),
-    m_classifier(0),
-    m_statistics(0),
     m_statBlockSize(132),
     m_statStepSize(22)
 {
@@ -43,7 +35,6 @@ Plugin::Plugin(float inputSampleRate):
     m_procContext.blockSize = 512;
     m_procContext.stepSize = 256;
 #endif
-
 }
 
 Plugin::~Plugin()
@@ -132,15 +123,19 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
 
     const int statDeltaBlockSize = 5;
 
-    m_resampler = new Resampler( m_inputContext.sampleRate, m_procContext.sampleRate );
-    m_energy = new Energy( m_procContext.blockSize );
-    m_spectrum = new PowerSpectrum( m_procContext.blockSize );
-    m_melSpectrum = new MelSpectrum( mfccFilterCount, m_procContext.sampleRate,  m_procContext.blockSize );
-    m_mfcc = new Mfcc( mfccFilterCount );
-    m_entropy = new ChromaticEntropy( m_procContext.sampleRate, m_procContext.blockSize,
-                                      chromEntropyLoFreq, chromEntropyHiFreq );
-    m_statistics = new Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
-    m_classifier = new Classifier();
+    deleteModules();
+
+    m_modules.resize( ModuleCount );
+
+    m_modules[Resampler] = new Segmenter::Resampler( m_inputContext.sampleRate, m_procContext.sampleRate );
+    m_modules[Energy] = new Segmenter::Energy( m_procContext.blockSize );
+    m_modules[PowerSpectrum] = new Segmenter::PowerSpectrum( m_procContext.blockSize );
+    m_modules[MelSpectrum] = new Segmenter::MelSpectrum( mfccFilterCount, m_procContext.sampleRate,  m_procContext.blockSize );
+    m_modules[Mfcc] = new Segmenter::Mfcc( mfccFilterCount );
+    m_modules[ChromaticEntropy] = new Segmenter::ChromaticEntropy( m_procContext.sampleRate, m_procContext.blockSize,
+                                                          chromEntropyLoFreq, chromEntropyHiFreq );
+    m_modules[Statistics] = new Segmenter::Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
+    m_modules[Classifier] = new Segmenter::Classifier();
 
     initStatistics();
 }
@@ -176,8 +171,8 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     OutputDescriptor outClasses;
     outClasses.hasFixedBinCount = true;
     outClasses.binCount = 1;
-    /*outClasses.binCount = m_classifier ? m_classifier->classNames().count() : 0;
-    if (m_classifier) outClasses.binNames = m_classifier->classNames();*/
+    /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
+    if (classifier) outClasses.binNames = classifier->classNames();*/
     /*
     outClasses.isQuantized;
     outClasses.quantizeStep = 1;
@@ -208,6 +203,15 @@ Vamp::Plugin::FeatureSet Plugin::getRemainingFeatures()
 
 Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime timestamp)
 {
+    Segmenter::Resampler *resampler = static_cast<Segmenter::Resampler*>( module(Resampler) );
+    Segmenter::Energy *energy = static_cast<Segmenter::Energy*>( module(Energy) );
+    Segmenter::PowerSpectrum *powerSpectrum = static_cast<Segmenter::PowerSpectrum*>( module(PowerSpectrum) );
+    Segmenter::MelSpectrum *melSpectrum = static_cast<Segmenter::MelSpectrum*>( module(MelSpectrum) );
+    Segmenter::Mfcc *mfcc = static_cast<Segmenter::Mfcc*>( module(Mfcc) );
+    Segmenter::ChromaticEntropy *chromaticEntropy = static_cast<Segmenter::ChromaticEntropy*>( module(ChromaticEntropy) );
+    Segmenter::Statistics *statistics = static_cast<Segmenter::Statistics*>( module(Statistics) );
+    Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( module(Classifier) );
+
     bool endOfStream = input == 0;
 
     FeatureSet features;
@@ -217,9 +221,9 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
 #else
     if (!endOfStream)
-        m_resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
+        resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
     else
-        m_resampler->processRemainingData( m_resampBuffer );
+        resampler->processRemainingData( m_resampBuffer );
 #endif
 
     int blockFrame;
@@ -230,33 +234,34 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
     {
         const float *block = m_resampBuffer.data() + blockFrame;
 
-        m_energy->process( block );
-        m_spectrum->process( block );
-        m_melSpectrum->process( m_spectrum->output() );
-        m_mfcc->process( m_melSpectrum->output() );
-        m_entropy->process( m_spectrum->output() );
-        m_statistics->process( m_energy->output(), m_entropy->output(), m_mfcc->output(), m_statsBuffer );
+        energy->process( block );
+        powerSpectrum->process( block );
+        melSpectrum->process( powerSpectrum->output() );
+        mfcc->process( melSpectrum->output() );
+        chromaticEntropy->process( powerSpectrum->output() );
+        statistics->process( energy->output(), chromaticEntropy->output(),
+                                     mfcc->output(), m_statsBuffer );
 
         Feature basicFeatures;
-        basicFeatures.values.push_back( m_entropy->output() );
-        basicFeatures.values.push_back( m_mfcc->output()[2] );
-        basicFeatures.values.push_back( m_mfcc->output()[3] );
-        basicFeatures.values.push_back( m_mfcc->output()[4] );
-        basicFeatures.values.push_back( m_energy->output() );
+        basicFeatures.values.push_back( chromaticEntropy->output() );
+        basicFeatures.values.push_back( mfcc->output()[2] );
+        basicFeatures.values.push_back( mfcc->output()[3] );
+        basicFeatures.values.push_back( mfcc->output()[4] );
+        basicFeatures.values.push_back( energy->output() );
 
         features[0].push_back(basicFeatures);
     }
 
     if (endOfStream)
-        m_statistics->processRemainingData( m_statsBuffer );
+        statistics->processRemainingData( m_statsBuffer );
 
     for (int i = 0; i < m_statsBuffer.size(); ++i)
     {
         const Statistics::OutputFeatures & stat = m_statsBuffer[i];
 
-        m_classifier->process( stat.features );
+        classifier->process( stat.features );
 
-        const std::vector<float> & distribution = m_classifier->probabilities();
+        const std::vector<float> & distribution = classifier->probabilities();
         float avgClass = 0;
         for (int i = 0; i < distribution.size(); ++i)
             avgClass += distribution[i] * i;
@@ -267,7 +272,7 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         classification.timestamp = m_statsTime;
         classification.values.push_back( avgClass );
         //classification.label = "x";
-        //classification.values = m_classifier->probabilities();
+        //classification.values = classifier->probabilities();
 
         features[1].push_back( classification );
 
@@ -282,22 +287,12 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 
 void Plugin::deleteModules()
 {
-    delete m_resampler;
-    m_resampler = 0;
-    delete m_energy;
-    m_energy = 0;
-    delete m_spectrum;
-    m_spectrum = 0;
-    delete m_melSpectrum;
-    m_melSpectrum = 0;
-    delete m_mfcc;
-    m_mfcc = 0;
-    delete m_entropy;
-    m_energy = 0;
-    delete m_statistics;
-    m_statistics = 0;
-    delete m_classifier;
-    m_classifier = 0;
+    int moduleCount = m_modules.size();
+
+    for (int idx = 0; idx < m_modules.size(); ++idx)
+        delete m_modules[idx];
+
+    m_modules.clear();
 }
 
 } // namespace Segmenter

@@ -1,12 +1,14 @@
 #ifndef SEGMENTER_MEL_SPECTRUM_INCLUDED
 #define SEGMENTER_MEL_SPECTRUM_INCLUDED
 
+#include "module.hpp"
+
 #include <vector>
 #include <cmath>
 
 namespace Segmenter {
 
-class MelSpectrum
+class MelSpectrum : public Module
 {
     struct Filter {
         int offset;

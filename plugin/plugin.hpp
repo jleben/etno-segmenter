@@ -9,15 +9,6 @@
 
 namespace Segmenter {
 
-class Resampler;
-class PowerSpectrum;
-class MelSpectrum;
-class Mfcc;
-class ChromaticEntropy;
-class Statistics;
-class Energy;
-class Classifier;
-
 class Plugin : public Vamp::Plugin
 {
 public:
@@ -63,16 +54,24 @@ private:
 
     ProcessContext m_procContext;
 
-    void deleteModules();
+    enum ModuleType {
+        Resampler = 0,
+        Energy,
+        PowerSpectrum,
+        MelSpectrum,
+        Mfcc,
+        ChromaticEntropy,
+        Statistics,
+        Classifier,
 
-    Resampler * m_resampler;
-    Energy * m_energy;
-    PowerSpectrum * m_spectrum;
-    MelSpectrum * m_melSpectrum;
-    Mfcc * m_mfcc;
-    ChromaticEntropy * m_entropy;
-    Statistics *m_statistics;
-    Classifier *m_classifier;
+        ModuleCount
+    };
+
+    std::vector<Module*> m_modules;
+
+    Module *module( ModuleType type ) { return m_modules[type]; }
+
+    void deleteModules();
 
     int m_statBlockSize;
     int m_statStepSize;

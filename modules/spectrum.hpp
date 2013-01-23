@@ -1,7 +1,7 @@
 #ifndef SEGMENTER_FFT_HPP_INCLUDED
 #define SEGMENTER_FFT_HPP_INCLUDED
 
-//#include "module.hpp"
+#include "module.hpp"
 
 #include <vector>
 #include <cmath>
@@ -10,7 +10,7 @@
 
 namespace Segmenter {
 
-class PowerSpectrum
+class PowerSpectrum : public Module
 {
     int m_windowSize;
     fftwf_plan m_plan;

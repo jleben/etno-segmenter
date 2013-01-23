@@ -1,11 +1,13 @@
 #ifndef SEGMENTER_STATISTICS_HPP_INCLUDED
 #define SEGMENTER_STATISTICS_HPP_INCLUDED
 
+#include "module.hpp"
+
 #include <vector>
 
 namespace Segmenter {
 
-class Statistics
+class Statistics : public Module
 {
 public:
     /*

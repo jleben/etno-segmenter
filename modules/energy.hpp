@@ -1,13 +1,13 @@
 #ifndef SEGMENTER_ENERGY_HPP_INCLUDED
 #define SEGMENTER_ENERGY_HPP_INCLUDED
 
-//#include "module.hpp"
+#include "module.hpp"
 
 #include <vector>
 
 namespace Segmenter {
 
-class Energy
+class Energy : public Module
 {
     int m_windowSize;
     float m_output;

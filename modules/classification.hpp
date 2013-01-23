@@ -1,7 +1,7 @@
 #ifndef SEGMENTER_CLASSIFICATION_HPP_INCLUDED
 #define SEGMENTER_CLASSIFICATION_HPP_INCLUDED
 
-//#include "module.hpp"
+#include "module.hpp"
 
 #include <vector>
 #include <string>
@@ -9,7 +9,7 @@
 
 namespace Segmenter {
 
-class Classifier
+class Classifier : public Module
 {
     static const int s_classCount = 5;
     static const int s_inputCount = 9;
