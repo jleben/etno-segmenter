@@ -7,8 +7,6 @@
 #include <vamp-sdk/Plugin.h>
 #include <vector>
 
-#define SEGMENTER_NEW_FEATURES 1
-
 namespace Segmenter {
 
 class Plugin : public Vamp::Plugin
