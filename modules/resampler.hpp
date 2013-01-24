@@ -28,7 +28,7 @@ public:
     {
         int error = 0;
         const int channelCount = 1;
-        m_srcState = src_new( SRC_LINEAR, channelCount, &error );
+        m_srcState = src_new( SRC_SINC_FASTEST, channelCount, &error );
         if (error) {
             std::cout << "Resampler ERROR: " << src_strerror(error) << std::endl;
             return;
