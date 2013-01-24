@@ -6,6 +6,7 @@
 
 #include <vamp-sdk/Plugin.h>
 #include <vector>
+#include <fstream>
 
 namespace Segmenter {
 
@@ -97,6 +98,11 @@ private:
         m_statsTime = Vamp::RealTime::fromSeconds
             ( ((double) m_statBlockSize / 2.0) * m_procContext.stepSize / m_procContext.sampleRate );
     }
+
+    // logging
+    std::fstream m_file;
+    long m_logFrame;
+    long m_logFrameLimit;
 };
 
 } // namespace Segmenter

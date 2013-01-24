@@ -18,6 +18,9 @@
 
 #define SEGMENTER_NO_RESAMPLING 0
 
+#define SEGMENTER_LOGGING 1
+#define SEGMENTER_LOGGING_SEPARATOR '\t'
+
 using namespace std;
 
 namespace Segmenter {
@@ -25,7 +28,9 @@ namespace Segmenter {
 Plugin::Plugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
     m_statBlockSize(132),
-    m_statStepSize(22)
+    m_statStepSize(22),
+    m_logFrame(0),
+    m_logFrameLimit(0)
 {
     m_inputContext.sampleRate = inputSampleRate;
 
@@ -156,6 +161,22 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
         * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
 
     m_featureDuration = Vamp::RealTime::frame2RealTime( featureFrames, m_inputContext.sampleRate );
+
+#if SEGMENTER_LOGGING
+    if (m_file.is_open())
+        m_file.close();
+
+    m_file.open("/home/jakob/programming/audiosegmenter/log.txt", std::ios_base::out);
+    if (m_file.fail())
+        std::cout << "*** Could not open logging file" << std::endl;
+    else
+        std::cout << "*** Successfully opened logging file" << std::endl;
+
+    m_file << std::fixed;
+
+    m_logFrame = 0;
+    m_logFrameLimit = 30 * m_procContext.sampleRate;
+#endif
 }
 
 void Plugin::reset()
@@ -279,6 +300,33 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         realCepstrum->process( m_spectrumMag );
 
         cepstralFeatures->process( powerSpectrum->output(), realCepstrum->output() );
+#endif
+
+#if SEGMENTER_LOGGING
+        if (m_file.is_open())
+        {
+            if (!endOfStream) {
+                if (m_logFrame < m_logFrameLimit) {
+                    m_file << m_logFrame << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << energy->output() << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << chromaticEntropy->output() << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << mfcc->output()[2] << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << mfcc->output()[3] << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << mfcc->output()[4] << SEGMENTER_LOGGING_SEPARATOR;
+#if SEGMENTER_NEW_FEATURES
+                    m_file << cepstralFeatures->pitchDensity() << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << cepstralFeatures->tonality() << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << cepstralFeatures->tonality1() << SEGMENTER_LOGGING_SEPARATOR;
+                    m_file << fourHzMod->output() << SEGMENTER_LOGGING_SEPARATOR;
+#endif
+                    m_file << std::endl;
+                }
+            }
+            else {
+                m_file.close();
+            }
+        }
+        m_logFrame += m_procContext.stepSize;
 #endif
 
         Statistics::InputFeatures statInput;
