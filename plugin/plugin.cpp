@@ -43,6 +43,8 @@ Plugin::Plugin(float inputSampleRate):
     m_procContext.blockSize = 512;
     m_procContext.stepSize = 256;
 #endif
+
+    std::cout << "*** Segmenter: blocksize=" << m_procContext.blockSize << " stepSize=" << m_procContext.stepSize << std::endl;
 }
 
 Plugin::~Plugin()
@@ -213,7 +215,7 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outClasses.sampleType = OutputDescriptor::FixedSampleRate;
     outClasses.sampleRate = (double) m_procContext.sampleRate / (m_statStepSize * m_procContext.stepSize);
     outClasses.hasFixedBinCount = true;
-    outClasses.binCount = 1;
+    outClasses.binCount = 5;
 
     /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
     if (classifier) outClasses.binNames = classifier->classNames();*/
@@ -299,7 +301,7 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 
         realCepstrum->process( m_spectrumMag );
 
-        cepstralFeatures->process( powerSpectrum->output(), realCepstrum->output() );
+        cepstralFeatures->process( m_spectrumMag, realCepstrum->output() );
 #endif
 
 #if SEGMENTER_LOGGING
@@ -371,20 +373,21 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
     for (int i = 0; i < m_statsBuffer.size(); ++i)
     {
         const Statistics::OutputFeatures & stat = m_statsBuffer[i];
-//#if 0
+
         classifier->process( stat.features );
 
         const std::vector<float> & distribution = classifier->probabilities();
+#if 0
         float avgClass = 0;
         for (int i = 0; i < distribution.size(); ++i)
             avgClass += distribution[i] * i;
         avgClass /= distribution.size() - 1;
-//#endif
+#endif
         Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
-        classification.values.push_back( avgClass );
-        //classification.values = distribution;
+        //classification.values.push_back( avgClass );
+        classification.values = distribution;
 
         //classification.values.push_back( stat[ Statistics::TONALITY1_MEAN ] );
 
