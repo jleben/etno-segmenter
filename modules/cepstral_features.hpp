@@ -21,16 +21,23 @@ class CepstralFeatures : public Module
     float m_tonality1;
     float m_pitchDensity;
 
+    std::vector<float> m_buffer;
+
 public:
     CepstralFeatures( float sampleRate, int windowSize ):
         m_nWin(windowSize)
     {
         int cepstrumSize = windowSize / 2 + 1;
-        m_iMin = std::min( (int) (400 * windowSize / sampleRate), cepstrumSize );
-        m_iMax = std::min( (int) (3000 * windowSize / sampleRate), cepstrumSize );
+
+        //m_iMin = std::min( (int) (400 * windowSize / sampleRate), cepstrumSize );
+        //m_iMax = std::min( (int) (3000 * windowSize / sampleRate), cepstrumSize );
+        // FIXME: don't use absolute indexes, use code above instead:
+        m_iMin = lroundf( sampleRate / 1000.f );
+        m_iMax = lroundf( sampleRate / 90.f ) + 1;
+        std::cout << "*** CepstralFeatures: cepstrum range = " << m_iMin << "-" << m_iMax << std::endl;
     }
 
-    void process ( const std::vector<float> & powerSpectrum, const std::vector<float> & realCepstrum )
+    void process ( const std::vector<float> & spectrumMagnitude, const std::vector<float> & realCepstrum )
     {
         if (m_iMin >= realCepstrum.size()) {
             m_tonality = 0.f;
@@ -39,7 +46,17 @@ public:
             return;
         }
 
-        int nSpectrum = powerSpectrum.size();
+        int nSpectrum = spectrumMagnitude.size();
+
+        // preprocess spectrum: spectrum = square( max( magnitude, ath ) )
+        // FIXME: is this processing actually intentional, or was simply power spectrum desired??
+        static const float ath = 1.0f/65536;
+        std::vector<float> & spectrum = m_buffer;
+        spectrum.resize(nSpectrum);
+        for( int i = 0; i < nSpectrum; ++i ) {
+            spectrum[i] = std::max( spectrumMagnitude[i], ath );
+            spectrum[i] *= spectrum[i];
+        }
 
         float sumCeps = 0.f;
         float cepsMax = realCepstrum[m_iMin];
@@ -55,52 +72,40 @@ public:
             sumCeps += std::abs( ceps );
         }
 
-        float ratioC2S = m_nWin / iCepsMax;
+        float ratioC2S = (float) m_nWin / iCepsMax;
 
         // find first N partials (spectral values) corresponding to highest cepstral value
         float partials[5];
         int nPartials = 5;
         for (int iPartial = 0; iPartial < nPartials; ++iPartial)
         {
-            int iSpectrum = (int) (iPartial * ratioC2S) + 1;
+            // FIXME: should interpolate spectrum, instead of rounding index:
+            int iSpectrum = lroundf( (iPartial + 1) * ratioC2S );
             if (iSpectrum >= nSpectrum) {
                 nPartials = iPartial;
                 break;
             }
-            partials[iPartial] = powerSpectrum[iSpectrum];
+            partials[iPartial] = spectrum[iSpectrum];
         }
-#if 0
-        std::cout << "partials:  ";
-        for (int iPartial = 0; iPartial < nPartials; ++iPartial)
-            std::cout << partials[iPartial] << "  ";
-        std::cout << std::endl;
-#endif
 
         // find N highest spectral values
         float highest[5];
-        std::partial_sort_copy( powerSpectrum.begin(), powerSpectrum.end(),
+        std::partial_sort_copy( spectrum.begin(), spectrum.end(),
                                 &highest[0], &highest[nPartials],
                                 std::greater<float>() );
-#if 0
-        std::cout << "highest:  ";
-        for (int iHighest = 0; iHighest < nPartials; ++iHighest)
-            std::cout << highest[iHighest] << "  ";
-        std::cout << std::endl;
-#endif
+
         // sum N heighest spectral values
         float sumHighest = 0.f;
         for (int iHighest = 0; iHighest < nPartials; ++iHighest)
             sumHighest += highest[iHighest];
 
-        // sum partial values relative to sum of heighest spectral values
-        float sumRelativePartials = 0.f;
-        if (sumHighest > 0.f) {
-            for (int iPartial = 0; iPartial < nPartials; ++iPartial)
-                sumRelativePartials += partials[iPartial] / sumHighest;
-        }
+        // sum N partials
+        float sumPartials = 0.f;
+        for (int iPartial = 0; iPartial < nPartials; ++iPartial)
+            sumPartials += partials[iPartial];
 
         m_tonality = cepsMax;
-        m_tonality1 = sumRelativePartials;
+        m_tonality1 = sumHighest > 0.f ? sumPartials / sumHighest : 0.f;
         m_pitchDensity = sumCeps / (m_iMax - m_iMin);
     }
 
