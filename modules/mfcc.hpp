@@ -17,6 +17,8 @@ class Mfcc : public Module
 
     std::vector<float> m_output;
 
+    float m_outputScale;
+
 public:
     Mfcc( int coefficientCount )
     {
@@ -26,6 +28,8 @@ public:
                                    FFTW_REDFT10, FFTW_ESTIMATE);
 
         m_output.resize(coefficientCount);
+
+        m_outputScale = 1.f / std::sqrt( 2 * coefficientCount );
     }
 
     ~Mfcc()
@@ -47,7 +51,12 @@ public:
 
         fftwf_execute( m_plan );
 
+#if SEGMENTER_NEW_FEATURES
+        for (int idx = 0; idx < coeffCount; ++idx)
+            m_output[idx] = m_dctOut[idx] * m_outputScale;
+#else
         std::memcpy( m_output.data(), m_dctOut, sizeof(float) * coeffCount );
+#endif
     }
 
     const std::vector<float> & output() const { return m_output; }
