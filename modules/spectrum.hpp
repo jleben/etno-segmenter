@@ -8,7 +8,7 @@
 #include <cstring>
 #include <fftw3.h>
 
-#define ALTERNATIVE_WINDOWING 1
+#define POWER_SPECTRUM_SCALING SEGMENTER_NEW_FEATURES
 
 namespace Segmenter {
 
@@ -20,9 +20,7 @@ class PowerSpectrum : public Module
     float *m_outBuffer;
     float *m_window;
     std::vector<float> m_output;
-#if ALTERNATIVE_WINDOWING
     float m_outputScale;
-#endif
 
 public:
     PowerSpectrum( int windowSize ):
@@ -36,19 +34,15 @@ public:
         double pi = Segmenter::pi();
 
         m_window = new float[windowSize];
-#if ALTERNATIVE_WINDOWING
+
         float sumWindow = 0.f;
         for (int idx=0; idx < windowSize; ++idx) {
-            m_window[idx] = std::cos( 2 * pi * ( (float) idx / (windowSize - 1) + 0.5 ) );
-            m_window[idx] *= 0.5;
-            m_window[idx] += 0.5;
+            m_window[idx] = 0.54 - 0.46 * std::cos(2 * pi * idx / (windowSize-1) );
             sumWindow += m_window[idx];
         }
-        m_outputScale = 1.f / std::sqrt( sumWindow );
-#else
-        for (int idx=0; idx < windowSize; ++idx)
-            m_window[idx] = 0.54 - 0.46 * std::cos(2 * pi * idx / (windowSize-1) );
-#endif
+
+        m_outputScale = 2.f / sumWindow;
+        m_outputScale *= m_outputScale; // square, because we'll be multiplying power instead of raw spectrum
 
         m_output.resize(windowSize / 2 + 1);
     }
@@ -75,7 +69,7 @@ public:
 
         r = fft[0];
         out[0] = r * r;
-#if ALTERNATIVE_WINDOWING
+#if POWER_SPECTRUM_SCALING
         out[0] *= m_outputScale;
 #endif
 
@@ -85,7 +79,7 @@ public:
             r = fft[idx];
             i = fft[winSize - idx];
             out[idx] = r * r + i * i;
-#if ALTERNATIVE_WINDOWING
+#if POWER_SPECTRUM_SCALING
             out[idx] *= m_outputScale;
 #endif
         }
@@ -95,7 +89,7 @@ public:
             const int lastIdx = winSize / 2;
             r = fft[lastIdx];
             out[lastIdx] = r * r;
-#if ALTERNATIVE_WINDOWING
+#if POWER_SPECTRUM_SCALING
             out[lastIdx] *= m_outputScale;
 #endif
         }
