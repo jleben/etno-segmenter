@@ -57,7 +57,9 @@ public:
 
         for (int i = 0; i < nSpectrum; ++i ) {
             float val = std::max( spectrumMagnitude[i], ath );
-            val = std::log(val);
+            // NOTE: Officially, the following should be log instead of sqrt.
+            // sqrt reportedly proved better at classification.
+            val = std::sqrt(val);
             m_fft_in[i] = val;
         }
 
