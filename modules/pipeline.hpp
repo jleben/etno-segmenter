@@ -14,10 +14,9 @@
 namespace Segmenter {
 
 struct InputContext {
-    InputContext(): sampleRate(1), blockSize(0), resample(true) {}
+    InputContext(): sampleRate(1), blockSize(0) {}
     float sampleRate;
     int blockSize;
-    bool resample;
 };
 
 class Pipeline
@@ -75,6 +74,8 @@ private:
     std::vector<float> m_spectrumMag;
     std::vector<Statistics::InputFeatures> m_featBuffer;
     std::vector<Segmenter::Statistics::OutputFeatures> m_statsBuffer;
+
+    bool m_resample;
 };
 
 } // namespace Segmenter

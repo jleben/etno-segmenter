@@ -134,9 +134,6 @@ void Plugin::createPipeline()
     InputContext inCtx;
     inCtx.sampleRate = m_inputSampleRate;
     inCtx.blockSize = m_blockSize;
-#if SEGMENTER_NO_RESAMPLING
-    inCtx.resample = false;
-#endif
 
     FourierContext fCtx;
 #if SEGMENTER_NO_RESAMPLING

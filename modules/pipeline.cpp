@@ -19,7 +19,8 @@ Pipeline::Pipeline ( const InputContext & inCtx,
                      const StatisticContext & statCtx):
     m_inputContext( inCtx ),
     m_fourierContext( fCtx ),
-    m_statContext( statCtx )
+    m_statContext( statCtx ),
+    m_resample( inCtx.sampleRate != fCtx.sampleRate )
 {
     InputContext & in = m_inputContext;
     FourierContext & fourier = m_fourierContext;
@@ -83,15 +84,15 @@ void Pipeline::computeStatistics( const float * input )
 
     Vamp::Plugin::FeatureSet features;
 
-    if (!m_inputContext.resample) {
-        if (!endOfStream)
-            m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
-    }
-    else {
+    if (m_resample) {
         if (!endOfStream)
             resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
         else
             resampler->processRemainingData( m_resampBuffer );
+    }
+    else {
+        if (!endOfStream)
+            m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
     }
 
     m_featBuffer.clear();

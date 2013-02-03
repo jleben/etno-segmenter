@@ -191,25 +191,25 @@ int main ( int argc, char *argv[] )
     InputContext inCtx;
     inCtx.sampleRate = sf_info.samplerate;
     inCtx.blockSize = opt.block_size;
-    inCtx.resample = opt.resample_rate > 0;
 
     FourierContext fCtx;
-    if (inCtx.resample) {
-        fCtx.sampleRate = opt.resample_rate;
-        fCtx.blockSize = 512;
-        fCtx.stepSize = 256;
-    }
-    else {
-        fCtx.sampleRate = sf_info.samplerate;
-        fCtx.blockSize = 2048;
-        fCtx.stepSize = 1024;
-    }
+    fCtx.sampleRate = opt.resample_rate > 0 ? opt.resample_rate : inCtx.sampleRate;
+    fCtx.blockSize = std::pow(2, std::floor( std::log(0.05 * fCtx.sampleRate) / std::log(2.0) ));
+    fCtx.stepSize = fCtx.blockSize / 2;
 
     StatisticContext statCtx;
-    statCtx.blockSize = 132;
-    statCtx.stepSize = 22;
+    statCtx.blockSize = 3 * fCtx.sampleRate / fCtx.stepSize;
+    statCtx.stepSize = statCtx.blockSize / 6;
 
-    std::cout << "*** Segmenter: blocksize=" << fCtx.blockSize << " stepSize=" << fCtx.stepSize << std::endl;
+    std::cout << "-- processing"
+        << " block size = " << fCtx.blockSize
+        << ", step size = " << fCtx.stepSize
+        << std::endl;
+
+    std::cout << "-- statistics"
+        << " block size = " << statCtx.blockSize
+        << ", step size = " << statCtx.stepSize
+        << std::endl;
 
     Pipeline * pipeline = new Pipeline( inCtx, fCtx, statCtx );
 
