@@ -6,9 +6,6 @@
 #include <sstream>
 #include <iostream>
 
-#define SEGMENTER_LOGGING 1
-#define SEGMENTER_LOGGING_SEPARATOR '\t'
-
 using namespace std;
 
 namespace Segmenter {
@@ -16,9 +13,7 @@ namespace Segmenter {
 Plugin::Plugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
     m_blockSize(0),
-    m_pipeline(0),
-    m_logFrame(0),
-    m_logFrameLimit(0)
+    m_pipeline(0)
 {}
 
 Plugin::~Plugin()
@@ -108,22 +103,6 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
         * ((double) m_inputSampleRate / m_pipeline->fourierContext().sampleRate) );
 
     m_featureDuration = Vamp::RealTime::frame2RealTime( featureFrames, m_inputSampleRate );
-#endif
-
-#if SEGMENTER_LOGGING
-    if (m_file.is_open())
-        m_file.close();
-
-    m_file.open("/home/jakob/programming/audiosegmenter/log.txt", std::ios_base::out);
-    if (m_file.fail())
-        std::cout << "*** Could not open logging file" << std::endl;
-    else
-        std::cout << "*** Successfully opened logging file" << std::endl;
-
-    m_file << std::fixed;
-
-    m_logFrame = 0;
-    m_logFrameLimit = 30 * m_pipeline->fourierContext().sampleRate;
 #endif
 }
 

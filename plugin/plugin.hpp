@@ -54,11 +54,6 @@ private:
 
     Vamp::RealTime m_featureDuration;
     Vamp::RealTime m_featureTime;
-
-    // logging
-    std::fstream m_file;
-    long m_logFrame;
-    long m_logFrameLimit;
 };
 
 } // namespace Segmenter
