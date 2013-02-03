@@ -29,12 +29,28 @@ public:
     {
         int cepstrumSize = windowSize / 2 + 1;
 
-        //m_iMin = std::min( (int) (400 * windowSize / sampleRate), cepstrumSize );
-        //m_iMax = std::min( (int) (3000 * windowSize / sampleRate), cepstrumSize );
-        // FIXME: don't use absolute indexes, use code above instead:
-        m_iMin = lroundf( sampleRate / 1000.f );
-        m_iMax = lroundf( sampleRate / 90.f ) + 1;
-        std::cout << "*** CepstralFeatures: cepstrum range = " << m_iMin << "-" << m_iMax << std::endl;
+        /*
+        NOTE: cepstrum index in relation to frequency does not depend on window size:
+            f = fs / (N / i_spec) = i_spec * fs / N
+            i_spec = N / i_ceps
+            f = (N / i_ceps) * (fs / N)
+            i_ceps = fs / f
+        */
+
+        float fMin = 90.f;
+        float fMax = 1000.f;
+        m_iMin = lroundf( sampleRate / fMax );
+        m_iMax = lroundf( sampleRate / fMin ) + 1;
+
+        if (m_iMin >= cepstrumSize || m_iMax > cepstrumSize) {
+            std::cout << "*** WARNING: CepstralFeatures: requested frequency range ("
+                << fMin << " - " << fMax << " Hz)"
+                << " out of cepstrum range (" << sampleRate / cepstrumSize << " - inf Hz)!"
+                << std::endl;
+
+            m_iMin = std::min( m_iMin, cepstrumSize );
+            m_iMax = std::min( m_iMax, cepstrumSize );
+        }
     }
 
     void process ( const std::vector<float> & spectrumMagnitude, const std::vector<float> & realCepstrum )
