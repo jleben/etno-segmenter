@@ -34,6 +34,7 @@ public:
         std::string classNames[] = { "solo", "choir", "bell", "instrumental", "speech" };
         m_classNames.insert( m_classNames.end(), &classNames[0], &classNames[5] );
 
+#if 0
         std::cout << "coeffs:" << std::endl;
         for (int i = 0; i < s_inputCount+1; ++i) {
             for(int j = 0; j < s_classCount-1; ++j) {
@@ -41,6 +42,7 @@ public:
             }
             std::cout << std::endl;
         }
+#endif
     }
 
     void process( const InputArray & input )

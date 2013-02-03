@@ -7,8 +7,14 @@ set( plugin_src
     plugin/entry.cpp
     plugin/plugin.cpp
     plugin/marsyas_plugin.cpp
+)
+
+set( modules_src
     modules/pipeline.cpp
     modules/classification.cpp
+)
+
+set( marsystems_src
     marsystems/buffer.cpp
     marsystems/linear_trend.cpp
     marsystems/mfcc.cpp
@@ -17,7 +23,7 @@ set( plugin_src
     marsystems/vampsink.cpp
 )
 
-add_library( plugin MODULE ${plugin_src} )
+add_library( plugin MODULE ${plugin_src} ${modules_src} ${marsystems_src} )
 
 target_link_libraries( plugin vamp-sdk marsyas samplerate fftw3f m )
 
@@ -32,12 +38,11 @@ install( TARGETS plugin
 
 ### Test App
 
-set( test_src
-    app/main.cpp
-    marsystems/buffer.cpp
-    marsystems/vampsink.cpp
+set( app_src
+    app/app.cpp
 )
 
-add_executable( test ${test_src} )
+add_executable( segmenter ${app_src} ${modules_src} )
 
-target_link_libraries( test marsyas vamp-sdk )
+target_link_libraries( segmenter sndfile samplerate fftw3f vamp-sdk m )
+

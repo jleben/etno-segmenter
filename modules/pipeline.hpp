@@ -9,7 +9,7 @@
 #include <vamp-sdk/RealTime.h>
 #include <vamp-sdk/Plugin.h>
 
-#define SEGMENTER_NO_RESAMPLING 0
+#define SEGMENTER_NO_RESAMPLING 1
 
 namespace Segmenter {
 
@@ -35,6 +35,7 @@ public:
     void computeStatistics( const float * input );
     void computeClassification( Vamp::Plugin::FeatureList & output );
 
+    const std::vector<Statistics::InputFeatures> & features() const { return m_featBuffer; }
     const std::vector<Statistics::OutputFeatures> & statistics() const { return m_statsBuffer; }
 
 private:
@@ -71,6 +72,7 @@ private:
 
     std::vector<float> m_resampBuffer;
     std::vector<float> m_spectrumMag;
+    std::vector<Statistics::InputFeatures> m_featBuffer;
     std::vector<Segmenter::Statistics::OutputFeatures> m_statsBuffer;
 };
 

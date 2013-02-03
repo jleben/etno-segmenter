@@ -93,6 +93,7 @@ void Pipeline::computeStatistics( const float * input )
         resampler->processRemainingData( m_resampBuffer );
 #endif
 
+    m_featBuffer.clear();
     m_statsBuffer.clear();
 
     int blockFrame;
@@ -128,46 +129,20 @@ void Pipeline::computeStatistics( const float * input )
         cepstralFeatures->process( m_spectrumMag, realCepstrum->output() );
 #endif
 
-#if SEGMENTER_LOGGING
-        if (m_file.is_open())
-        {
-            if (!endOfStream) {
-                if (m_logFrame < m_logFrameLimit) {
-                    m_file << m_logFrame << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << energy->output() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << chromaticEntropy->output() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[2] << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[3] << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[4] << SEGMENTER_LOGGING_SEPARATOR;
-#if SEGMENTER_NEW_FEATURES
-                    m_file << cepstralFeatures->pitchDensity() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << cepstralFeatures->tonality() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << cepstralFeatures->tonality1() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << fourHzMod->output() << SEGMENTER_LOGGING_SEPARATOR;
-#endif
-                    m_file << std::endl;
-                }
-            }
-            else {
-                m_file.close();
-            }
-        }
-        m_logFrame += m_procContext.stepSize;
-#endif
-
         Statistics::InputFeatures statInput;
         statInput.energy = energy->output();
         statInput.entropy = chromaticEntropy->output();
         statInput.mfcc2 = mfcc->output()[2];
         statInput.mfcc3 = mfcc->output()[3];
         statInput.mfcc4 = mfcc->output()[4];
-
 #if SEGMENTER_NEW_FEATURES
         statInput.pitchDensity = cepstralFeatures->pitchDensity();
         statInput.tonality = cepstralFeatures->tonality();
         statInput.tonality1 = cepstralFeatures->tonality1();
         statInput.fourHzMod = fourHzMod->output();
 #endif
+
+        m_featBuffer.push_back( statInput );
 
         statistics->process( statInput, m_statsBuffer );
     }

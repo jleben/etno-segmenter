@@ -137,7 +137,7 @@ void Plugin::createPipeline()
 
     FourierContext fCtx;
 #if SEGMENTER_NO_RESAMPLING
-    fCtx.sampleRate = inputSampleRate;
+    fCtx.sampleRate = m_inputSampleRate;
     fCtx.blockSize = 2048;
     fCtx.stepSize = 1024;
 #else
