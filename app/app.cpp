@@ -22,7 +22,7 @@ struct Options
     bool binary;
 
     Options() :
-        block_size(4096),
+        block_size(4096 * 3),
         resample_rate(11025.f),
         limit(0),
         features(false),
