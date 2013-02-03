@@ -201,6 +201,8 @@ int main ( int argc, char *argv[] )
     statCtx.blockSize = 3 * fCtx.sampleRate / fCtx.stepSize;
     statCtx.stepSize = statCtx.blockSize / 6;
 
+    std::cout << "-- input sample rate = " << inCtx.sampleRate << endl;
+
     std::cout << "-- processing"
         << " block size = " << fCtx.blockSize
         << ", step size = " << fCtx.stepSize
@@ -218,10 +220,11 @@ int main ( int argc, char *argv[] )
     float * input_buffer = new float[opt.block_size];
     int frames = 0;
     int progress = 0;
+    size_t frames_read = 0;
 
     // go
 
-    while( sf_read_float(sf, input_buffer, opt.block_size) == opt.block_size )
+    while( (frames_read = sf_read_float(sf, input_buffer, opt.block_size)) == opt.block_size )
     {
         pipeline->computeStatistics( input_buffer );
 
@@ -272,20 +275,22 @@ int main ( int argc, char *argv[] )
         frames += opt.block_size;
         int current_progress = (float) frames / sf_info.frames * 100.f;
 
-        if (opt.limit > 0 && current_progress >= opt.limit) {
-            cout << current_progress << "%" << endl;
-            break;
-        }
-
         if (current_progress > progress) {
             if (current_progress % 5 == 0)
                 cout << current_progress << "%" << endl;
             else
                 cout << ".";
         }
-        progress = current_progress;
         cout.flush();
+
+        progress = current_progress;
+
+        if (opt.limit > 0 && progress >= opt.limit)
+            break;
     }
+    if (progress % 5 != 0)
+        cout << progress << "%" << endl;
+    cout << "Done" << endl;
 
     // cleanup
     sf_close(sf);
