@@ -42,7 +42,7 @@ set( app_src
     app/app.cpp
 )
 
-add_executable( segmenter ${app_src} ${modules_src} )
+add_executable( extract ${app_src} ${modules_src} )
 
-target_link_libraries( segmenter sndfile samplerate fftw3f vamp-sdk m )
+target_link_libraries( extract sndfile samplerate fftw3f vamp-sdk m )
 

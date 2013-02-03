@@ -32,7 +32,7 @@ struct Options
 
 static void printUsage()
 {
-    cout << "Usage: segmenter <filename> <options...>" << endl;
+    cout << "Usage: extract <filename> <options...>" << endl;
 }
 
 static bool checkHasValue( int i, int argc, char **argv  ) {
@@ -64,7 +64,7 @@ static bool parseOptions( int argc, char **argv, Options & opt )
             float val;
             val_str >> val;
             if (!val_str.eof()) {
-                cerr << "Wrong argument format for option -r!" << endl;
+                cerr << "ERROR: Wrong argument format for option -r!" << endl;
                 return false;
             }
             opt.resample_rate = val;
@@ -89,11 +89,11 @@ static bool parseOptions( int argc, char **argv, Options & opt )
         else if (strcmp(arg, "-b") == 0 || strcmp(arg, "--binary") == 0)
             opt.binary = true;
         else if (arg[0] != '-') {
-            cerr << "Redundant argument: " << arg << endl;
+            cerr << "ERROR: Redundant argument: " << arg << endl;
             return false;
         }
         else {
-            cerr << "Unknown option: " << arg << endl;
+            cerr << "ERROR: Unknown option: " << arg << endl;
             return false;
         }
 
@@ -101,7 +101,7 @@ static bool parseOptions( int argc, char **argv, Options & opt )
     }
 
     if (opt.output_filename.empty()) {
-        opt.output_filename = "segmenter.out";
+        opt.output_filename = "extract.out";
         if (opt.binary)
             opt.output_filename += ".wav";
         else
@@ -148,12 +148,12 @@ int main ( int argc, char *argv[] )
     SNDFILE *sf = sf_open( opt.input_filename.data(), SFM_READ, &sf_info );
 
     if (!sf) {
-        cerr << "*** Segmenter: Failed to open file for reading: " << opt.input_filename << endl;
+        cerr << "ERROR: Failed to open file for reading: " << opt.input_filename << endl;
         return 2;
     }
 
     if (sf_info.channels != 1) {
-        cerr << "*** Segmenter: Can not use files with more than 1 channels." << endl;
+        cerr << "ERROR: Can not use files with more than 1 channels." << endl;
         return 3;
     }
 
@@ -173,14 +173,14 @@ int main ( int argc, char *argv[] )
 
         sf_out = sf_open( opt.output_filename.data(), SFM_WRITE, &sf_out_info );
         if (!sf_out) {
-            cerr << "*** Segmenter: Can not open output file for writing: " << opt.output_filename << endl;
+            cerr << "ERROR: Can not open output file for writing: " << opt.output_filename << endl;
             return 4;
         }
     }
     else {
         text_out.open( opt.output_filename.data(), ios::out );
         if (!text_out.is_open()) {
-            cerr << "*** Segmenter: Can not open output file for writing: " << opt.output_filename << endl;
+            cerr << "ERROR: Can not open output file for writing: " << opt.output_filename << endl;
             return 4;
         }
         text_out << std::fixed;
