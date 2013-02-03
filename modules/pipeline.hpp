@@ -9,8 +9,6 @@
 #include <vamp-sdk/RealTime.h>
 #include <vamp-sdk/Plugin.h>
 
-#define SEGMENTER_NO_RESAMPLING 1
-
 namespace Segmenter {
 
 struct InputContext {

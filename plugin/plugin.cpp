@@ -10,6 +10,8 @@ using namespace std;
 
 namespace Segmenter {
 
+static bool noResampling = false;
+
 Plugin::Plugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
     m_blockSize(0),
@@ -115,15 +117,15 @@ void Plugin::createPipeline()
     inCtx.blockSize = m_blockSize;
 
     FourierContext fCtx;
-#if SEGMENTER_NO_RESAMPLING
-    fCtx.sampleRate = m_inputSampleRate;
-    fCtx.blockSize = 2048;
-    fCtx.stepSize = 1024;
-#else
-    fCtx.sampleRate = 11025;
-    fCtx.blockSize = 512;
-    fCtx.stepSize = 256;
-#endif
+    if (noResampling) {
+        fCtx.sampleRate = m_inputSampleRate;
+        fCtx.blockSize = 2048;
+        fCtx.stepSize = 1024;
+    } else {
+        fCtx.sampleRate = 11025;
+        fCtx.blockSize = 512;
+        fCtx.stepSize = 256;
+    }
 
     StatisticContext statCtx;
     statCtx.blockSize = 132;
