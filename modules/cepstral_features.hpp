@@ -65,7 +65,7 @@ public:
         int nSpectrum = spectrumMagnitude.size();
 
         // preprocess spectrum: spectrum = square( max( magnitude, ath ) )
-        // FIXME: is this processing actually intentional, or was simply power spectrum desired??
+        // FIXME: was the 'max' really intentional here, or was simply power spectrum desired??
         static const float ath = 1.0f/65536;
         std::vector<float> & spectrum = m_buffer;
         spectrum.resize(nSpectrum);
