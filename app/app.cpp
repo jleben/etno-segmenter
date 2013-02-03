@@ -221,12 +221,17 @@ int main ( int argc, char *argv[] )
     int frames = 0;
     int progress = 0;
     size_t frames_read = 0;
+    bool endOfStream = false;
 
     // go
 
-    while( (frames_read = sf_read_float(sf, input_buffer, opt.block_size)) == opt.block_size )
+    do
     {
-        pipeline->computeStatistics( input_buffer );
+        frames_read = sf_read_float(sf, input_buffer, opt.block_size);
+
+        endOfStream = frames_read < opt.block_size;
+
+        pipeline->computeStatistics( input_buffer, frames_read, endOfStream );
 
         if (opt.features) {
             int featureN = pipeline->features().size();
@@ -272,7 +277,7 @@ int main ( int argc, char *argv[] )
             }
         }
 
-        frames += opt.block_size;
+        frames += frames_read;
         int current_progress = (float) frames / sf_info.frames * 100.f;
 
         if (current_progress > progress) {
@@ -287,7 +292,8 @@ int main ( int argc, char *argv[] )
 
         if (opt.limit > 0 && progress >= opt.limit)
             break;
-    }
+    } while (!endOfStream);
+
     if (progress % 5 != 0)
         cout << progress << "%" << endl;
     cout << "Done" << endl;

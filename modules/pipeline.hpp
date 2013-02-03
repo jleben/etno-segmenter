@@ -30,7 +30,7 @@ public:
     const FourierContext & fourierContext() const { return m_fourierContext; }
     const StatisticContext & statisticContext() const { return m_statContext; }
 
-    void computeStatistics( const float * input );
+    void computeStatistics( const float * input, int count, bool last = false );
     void computeClassification( Vamp::Plugin::FeatureList & output );
 
     const std::vector<Statistics::InputFeatures> & features() const { return m_featBuffer; }

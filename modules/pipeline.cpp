@@ -65,7 +65,7 @@ Pipeline::~Pipeline()
         delete m_modules[idx];
 }
 
-void Pipeline::computeStatistics( const float * input )
+void Pipeline::computeStatistics( const float * input, int inputSize, bool endOfStream )
 {
     Segmenter::Resampler *resampler = static_cast<Segmenter::Resampler*>( get(ResamplerModule) );
     Segmenter::Energy *energy = static_cast<Segmenter::Energy*>( get(EnergyModule) );
@@ -80,19 +80,17 @@ void Pipeline::computeStatistics( const float * input )
     Segmenter::CepstralFeatures *cepstralFeatures = static_cast<Segmenter::CepstralFeatures*>( get(CepstralFeaturesModule) );
 #endif
 
-    bool endOfStream = input == 0;
-
     Vamp::Plugin::FeatureSet features;
 
     if (m_resample) {
-        if (!endOfStream)
-            resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
-        else
+        if (inputSize)
+            resampler->process( input, inputSize, m_resampBuffer );
+        if (endOfStream)
             resampler->processRemainingData( m_resampBuffer );
     }
     else {
-        if (!endOfStream)
-            m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
+        if (inputSize)
+            m_resampBuffer.insert( m_resampBuffer.end(), input, input + inputSize );
     }
 
     m_featBuffer.clear();

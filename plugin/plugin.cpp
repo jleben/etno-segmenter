@@ -207,7 +207,12 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 {
     FeatureSet features;
 
-    m_pipeline->computeStatistics( input );
+    bool endOfStream = input == 0;
+    if (!endOfStream)
+        m_pipeline->computeStatistics( input, m_blockSize, endOfStream );
+    else
+        m_pipeline->computeStatistics( 0, 0, endOfStream );
+
     m_pipeline->computeClassification( features[0] );
 
 #if 0
