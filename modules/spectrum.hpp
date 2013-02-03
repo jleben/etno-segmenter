@@ -37,6 +37,7 @@ public:
 
         float sumWindow = 0.f;
         for (int idx=0; idx < windowSize; ++idx) {
+            // hamming window:
             m_window[idx] = 0.54 - 0.46 * std::cos(2 * pi * idx / (windowSize-1) );
             sumWindow += m_window[idx];
         }
