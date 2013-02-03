@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstring>
 #include <cstdlib>
 
@@ -14,14 +15,16 @@ struct Options
 {
     string input_filename;
     string output_filename;
-    int output_limit;
-    int blockSize;
+    int block_size;
+    float resample_rate;
+    int limit;
     bool features;
     bool binary;
 
     Options() :
-        output_limit(0),
-        blockSize(4096),
+        block_size(4096),
+        resample_rate(11025.f),
+        limit(0),
         features(false),
         binary(false)
     {}
@@ -53,7 +56,22 @@ static bool parseOptions( int argc, char **argv, Options & opt )
     {
         char *arg = argv[argi];
 
-        if (strcmp(arg, "-o") == 0) {
+        if (strcmp(arg, "-r") == 0) {
+            if ( !checkHasValue(argi, argc, argv) )
+                return false;
+            ++argi;
+            std::istringstream val_str(argv[argi]);
+            float val;
+            val_str >> val;
+            if (!val_str.eof()) {
+                cerr << "Wrong argument format for option -r!" << endl;
+                return false;
+            }
+            opt.resample_rate = val;
+        }
+        else if (strcmp(arg, "--no-resample") == 0)
+            opt.resample_rate = 0;
+        else if (strcmp(arg, "-o") == 0) {
             if ( !checkHasValue(argi, argc, argv) )
                 return false;
             ++argi;
@@ -64,7 +82,7 @@ static bool parseOptions( int argc, char **argv, Options & opt )
                 return false;
             ++argi;
             char *val = argv[argi];
-            opt.output_limit = atoi(val);
+            opt.limit = atoi(val);
         }
         else if (strcmp(arg, "-f") == 0 || strcmp(arg, "--features") == 0)
             opt.features = true;
@@ -93,6 +111,24 @@ static bool parseOptions( int argc, char **argv, Options & opt )
     return true;
 }
 
+void printOptions( Options & opt )
+{
+    cout << "Options:" << endl;
+    cout << '\t' << "- input: " << opt.input_filename << endl;
+    cout << '\t' << "- output: " << opt.output_filename << endl;
+    cout << '\t' << "- block size: " << opt.block_size << endl;
+    if (opt.resample_rate > 0)
+        cout << '\t' << "- resampling: " << opt.resample_rate << endl;
+    else
+        cout << '\t' << "- resampling: none" << endl;
+    if (opt.limit > 0)
+        cout << '\t' << "- limit: " << opt.limit << "%" << endl;
+    else
+        cout << '\t' << "- limit: none" << endl;
+    cout << '\t' << "- type: " << (opt.features ? "features" : "statistics") << endl;
+    cout << '\t' << "- format: " << (opt.binary ? "binary" : "text") << endl;
+}
+
 int main ( int argc, char *argv[] )
 {
     // parse options
@@ -101,6 +137,8 @@ int main ( int argc, char *argv[] )
 
     if (!parseOptions( argc, argv, opt ))
         return 1;
+
+    printOptions(opt);
 
     // open sound file
 
@@ -152,18 +190,20 @@ int main ( int argc, char *argv[] )
 
     InputContext inCtx;
     inCtx.sampleRate = sf_info.samplerate;
-    inCtx.blockSize = opt.blockSize;
+    inCtx.blockSize = opt.block_size;
+    inCtx.resample = opt.resample_rate > 0;
 
     FourierContext fCtx;
-#if SEGMENTER_NO_RESAMPLING
-    fCtx.sampleRate = sf_info.samplerate;
-    fCtx.blockSize = 2048;
-    fCtx.stepSize = 1024;
-#else
-    fCtx.sampleRate = 11025;
-    fCtx.blockSize = 512;
-    fCtx.stepSize = 256;
-#endif
+    if (inCtx.resample) {
+        fCtx.sampleRate = opt.resample_rate;
+        fCtx.blockSize = 512;
+        fCtx.stepSize = 256;
+    }
+    else {
+        fCtx.sampleRate = sf_info.samplerate;
+        fCtx.blockSize = 2048;
+        fCtx.stepSize = 1024;
+    }
 
     StatisticContext statCtx;
     statCtx.blockSize = 132;
@@ -175,13 +215,13 @@ int main ( int argc, char *argv[] )
 
     // init processing
 
-    float * input_buffer = new float[opt.blockSize];
+    float * input_buffer = new float[opt.block_size];
     int frames = 0;
     int progress = 0;
 
     // go
 
-    while( sf_read_float(sf, input_buffer, opt.blockSize) == opt.blockSize )
+    while( sf_read_float(sf, input_buffer, opt.block_size) == opt.block_size )
     {
         pipeline->computeStatistics( input_buffer );
 
@@ -197,15 +237,15 @@ int main ( int argc, char *argv[] )
                     const Statistics::InputFeatures & features = pipeline->features()[t];
                     text_out << features.energy << '\t';
                     text_out << features.entropy << '\t';
-                    text_out << features.mfcc2 << '\t';
-                    text_out << features.mfcc3 << '\t';
-                    text_out << features.mfcc4 << '\t';
 #if SEGMENTER_NEW_FEATURES
                     text_out << features.pitchDensity << '\t';
                     text_out << features.tonality << '\t';
                     text_out << features.tonality1 << '\t';
                     text_out << features.fourHzMod << '\t';
 #endif
+                    text_out << features.mfcc2 << '\t';
+                    text_out << features.mfcc3 << '\t';
+                    text_out << features.mfcc4 << '\t';
                     text_out << endl;
                 }
             }
@@ -229,10 +269,10 @@ int main ( int argc, char *argv[] )
             }
         }
 
-        frames += opt.blockSize;
+        frames += opt.block_size;
         int current_progress = (float) frames / sf_info.frames * 100.f;
 
-        if (opt.output_limit > 0 && current_progress >= opt.output_limit) {
+        if (opt.limit > 0 && current_progress >= opt.limit) {
             cout << current_progress << "%" << endl;
             break;
         }
