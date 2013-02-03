@@ -1,14 +1,13 @@
 #ifndef SEGMENTER_PLUGIN_HPP_INCLUDED
 #define SEGMENTER_PLUGIN_HPP_INCLUDED
 
-#include "../modules/module.hpp"
-#include "../modules/statistics.hpp"
-
 #include <vamp-sdk/Plugin.h>
 #include <vector>
 #include <fstream>
 
 namespace Segmenter {
+
+class Pipeline;
 
 class Plugin : public Vamp::Plugin
 {
@@ -45,59 +44,16 @@ public:
     FeatureSet getRemainingFeatures();
 
 private:
+    void createPipeline();
+
     FeatureSet getFeatures(const float * input, Vamp::RealTime timestamp);
 
-    struct InputContext {
-        InputContext(): sampleRate(0), blockSize(0) {}
-        float sampleRate;
-        int blockSize;
-    } m_inputContext;
+    int m_blockSize;
 
-    ProcessContext m_procContext;
+    Pipeline * m_pipeline;
 
-    enum ModuleType {
-        Resampler = 0,
-        Energy,
-        PowerSpectrum,
-        MelSpectrum,
-        Mfcc,
-        ChromaticEntropy,
-        Statistics,
-        Classifier,
-
-#if SEGMENTER_NEW_FEATURES
-        RealCepstrum,
-        CepstralFeatures,
-        FourHzModulation,
-#endif
-
-        ModuleCount
-    };
-
-    std::vector<Module*> m_modules;
-
-    Module *module( ModuleType type ) { return m_modules[type]; }
-
-    void deleteModules();
-
-    int m_statBlockSize;
-    int m_statStepSize;
-    Vamp::RealTime m_statsStepDuration;
-    Vamp::RealTime m_statsTime;
     Vamp::RealTime m_featureDuration;
     Vamp::RealTime m_featureTime;
-
-    std::vector<float> m_resampBuffer;
-    std::vector<float> m_spectrumMag;
-    std::vector<Statistics::OutputFeatures> m_statsBuffer;
-
-    void initStatistics()
-    {
-        m_statsStepDuration = Vamp::RealTime::fromSeconds
-            ( (double) m_statStepSize * m_procContext.stepSize / m_procContext.sampleRate );
-        m_statsTime = Vamp::RealTime::fromSeconds
-            ( ((double) m_statBlockSize / 2.0) * m_procContext.stepSize / m_procContext.sampleRate );
-    }
 
     // logging
     std::fstream m_file;

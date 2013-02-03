@@ -1,22 +1,10 @@
 #include "plugin.hpp"
-#include "../modules/resampler.hpp"
-#include "../modules/energy.hpp"
-#include "../modules/spectrum.hpp"
-#include "../modules/mel_spectrum.hpp"
-#include "../modules/real_cepstrum.hpp"
-#include "../modules/mfcc.hpp"
-#include "../modules/entropy.hpp"
-#include "../modules/cepstral_features.hpp"
-#include "../modules/4hz_modulation.hpp"
-#include "../modules/statistics.hpp"
-#include "../modules/classification.hpp"
+#include "../modules/pipeline.hpp"
 
 #include <vamp/vamp.h>
 
 #include <sstream>
 #include <iostream>
-
-#define SEGMENTER_NO_RESAMPLING 0
 
 #define SEGMENTER_LOGGING 1
 #define SEGMENTER_LOGGING_SEPARATOR '\t'
@@ -27,29 +15,15 @@ namespace Segmenter {
 
 Plugin::Plugin(float inputSampleRate):
     Vamp::Plugin(inputSampleRate),
-    m_statBlockSize(132),
-    m_statStepSize(22),
+    m_blockSize(0),
+    m_pipeline(0),
     m_logFrame(0),
     m_logFrameLimit(0)
-{
-    m_inputContext.sampleRate = inputSampleRate;
-
-#if SEGMENTER_NO_RESAMPLING
-    m_procContext.sampleRate = inputSampleRate;
-    m_procContext.blockSize = 2048;
-    m_procContext.stepSize = 1024;
-#else
-    m_procContext.sampleRate = 11025;
-    m_procContext.blockSize = 512;
-    m_procContext.stepSize = 256;
-#endif
-
-    std::cout << "*** Segmenter: blocksize=" << m_procContext.blockSize << " stepSize=" << m_procContext.stepSize << std::endl;
-}
+{}
 
 Plugin::~Plugin()
 {
-    deleteModules();
+    delete m_pipeline;
 }
 
 string Plugin::getIdentifier() const
@@ -124,45 +98,17 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
     if (blockSize != stepSize)
         return false;
 
-    InputContext & in = m_inputContext;
-    ProcessContext & proc = m_procContext;
+    m_blockSize = blockSize;
 
-    in.blockSize = blockSize;
+    createPipeline();
 
-    const int mfccFilterCount = 27;
-
-    const int chromEntropyLoFreq = 55;
-    const int chromEntropyHiFreq = 2000;
-
-    const int statDeltaBlockSize = 5;
-
-    deleteModules();
-
-    m_modules.resize( ModuleCount );
-
-    m_modules[Resampler] = new Segmenter::Resampler( in.sampleRate, proc.sampleRate );
-    m_modules[Energy] = new Segmenter::Energy( proc.blockSize );
-    m_modules[PowerSpectrum] = new Segmenter::PowerSpectrum( proc.blockSize );
-    m_modules[MelSpectrum] = new Segmenter::MelSpectrum( mfccFilterCount, proc.sampleRate,  proc.blockSize );
-    m_modules[Mfcc] = new Segmenter::Mfcc( mfccFilterCount );
-    m_modules[ChromaticEntropy] = new Segmenter::ChromaticEntropy( proc.sampleRate, proc.blockSize,
-                                                          chromEntropyLoFreq, chromEntropyHiFreq );
-    m_modules[Statistics] = new Segmenter::Statistics(m_statBlockSize, m_statStepSize, statDeltaBlockSize);
-    m_modules[Classifier] = new Segmenter::Classifier();
-
-#if SEGMENTER_NEW_FEATURES
-    m_modules[RealCepstrum] = new Segmenter::RealCepstrum( proc.blockSize );
-    m_modules[CepstralFeatures] = new Segmenter::CepstralFeatures( proc.sampleRate, proc.blockSize );
-    m_modules[FourHzModulation] = new Segmenter::FourHzModulation( proc.sampleRate, proc.blockSize, proc.stepSize );
-#endif
-
-    initStatistics();
-
+#if 0
     int featureFrames = std::ceil(
-        m_procContext.stepSize
-        * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
+        m_pipeline->fourierContext().stepSize
+        * ((double) m_inputSampleRate / m_pipeline->fourierContext().sampleRate) );
 
-    m_featureDuration = Vamp::RealTime::frame2RealTime( featureFrames, m_inputContext.sampleRate );
+    m_featureDuration = Vamp::RealTime::frame2RealTime( featureFrames, m_inputSampleRate );
+#endif
 
 #if SEGMENTER_LOGGING
     if (m_file.is_open())
@@ -177,25 +123,52 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
     m_file << std::fixed;
 
     m_logFrame = 0;
-    m_logFrameLimit = 30 * m_procContext.sampleRate;
+    m_logFrameLimit = 30 * m_pipeline->fourierContext().sampleRate;
 #endif
+}
+
+void Plugin::createPipeline()
+{
+    delete m_pipeline;
+
+    InputContext inCtx;
+    inCtx.sampleRate = m_inputSampleRate;
+    inCtx.blockSize = m_blockSize;
+
+    FourierContext fCtx;
+#if SEGMENTER_NO_RESAMPLING
+    fCtx.sampleRate = inputSampleRate;
+    fCtx.blockSize = 2048;
+    fCtx.stepSize = 1024;
+#else
+    fCtx.sampleRate = 11025;
+    fCtx.blockSize = 512;
+    fCtx.stepSize = 256;
+#endif
+
+    StatisticContext statCtx;
+    statCtx.blockSize = 132;
+    statCtx.stepSize = 22;
+
+    std::cout << "*** Segmenter: blocksize=" << fCtx.blockSize << " stepSize=" << fCtx.stepSize << std::endl;
+
+    m_pipeline = new Pipeline( inCtx, fCtx, statCtx );
 }
 
 void Plugin::reset()
 {
     std::cout << "**** Plugin::reset" << std::endl;
-    deleteModules();
-    initStatistics();
-    m_resampBuffer.clear();
+    createPipeline();
 }
 
 Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 {
     OutputList list;
 
+#if 0
     int featureFrames = std::ceil(
-        m_procContext.stepSize
-        * ((double) m_inputContext.sampleRate / m_procContext.sampleRate) );
+        m_pipeline->fourierContext().stepSize
+        * ((double) m_inputSampleRate / m_pipeline->fourierContext().sampleRate) );
 
     double featureSampleRate = (double) m_inputContext.sampleRate / featureFrames;
 
@@ -208,14 +181,21 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
     outStat.binCount = 1;
 
     list.push_back(outStat);
+#endif
 
     OutputDescriptor outClasses;
     outClasses.identifier = "classification";
     outClasses.name = "Classification";
     outClasses.sampleType = OutputDescriptor::FixedSampleRate;
-    outClasses.sampleRate = (double) m_procContext.sampleRate / (m_statStepSize * m_procContext.stepSize);
+    if (m_pipeline) {
+        outClasses.sampleRate =
+            (double) m_pipeline->fourierContext().sampleRate /
+            (m_pipeline->statisticContext().stepSize * m_pipeline->fourierContext().stepSize);
+    } else {
+        outClasses.sampleRate = 1;
+    }
     outClasses.hasFixedBinCount = true;
-    outClasses.binCount = 5;
+    outClasses.binCount = 1;
 
     /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
     if (classifier) outClasses.binNames = classifier->classNames();*/
@@ -244,109 +224,16 @@ Vamp::Plugin::FeatureSet Plugin::getRemainingFeatures()
 
 Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime timestamp)
 {
-    Segmenter::Resampler *resampler = static_cast<Segmenter::Resampler*>( module(Resampler) );
-    Segmenter::Energy *energy = static_cast<Segmenter::Energy*>( module(Energy) );
-    Segmenter::PowerSpectrum *powerSpectrum = static_cast<Segmenter::PowerSpectrum*>( module(PowerSpectrum) );
-    Segmenter::MelSpectrum *melSpectrum = static_cast<Segmenter::MelSpectrum*>( module(MelSpectrum) );
-    Segmenter::Mfcc *mfcc = static_cast<Segmenter::Mfcc*>( module(Mfcc) );
-    Segmenter::ChromaticEntropy *chromaticEntropy = static_cast<Segmenter::ChromaticEntropy*>( module(ChromaticEntropy) );
-    Segmenter::Statistics *statistics = static_cast<Segmenter::Statistics*>( module(Statistics) );
-    Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( module(Classifier) );
-#if SEGMENTER_NEW_FEATURES
-    Segmenter::FourHzModulation *fourHzMod = static_cast<Segmenter::FourHzModulation*>( module(FourHzModulation) );
-    Segmenter::RealCepstrum *realCepstrum = static_cast<Segmenter::RealCepstrum*>( module(RealCepstrum) );
-    Segmenter::CepstralFeatures *cepstralFeatures = static_cast<Segmenter::CepstralFeatures*>( module(CepstralFeatures) );
-#endif
-
-    bool endOfStream = input == 0;
-
     FeatureSet features;
 
-#if SEGMENTER_NO_RESAMPLING
-    if (!endOfStream)
-        m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
-#else
-    if (!endOfStream)
-        resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
-    else
-        resampler->processRemainingData( m_resampBuffer );
-#endif
+    m_pipeline->computeStatistics( input );
+    m_pipeline->computeClassification( features[0] );
 
-    int blockFrame;
-
+#if 0
     for ( blockFrame = 0;
           blockFrame <= (int) m_resampBuffer.size() - m_procContext.blockSize;
           blockFrame += m_procContext.stepSize )
     {
-        const float *block = m_resampBuffer.data() + blockFrame;
-
-        energy->process( block );
-
-        powerSpectrum->process( block );
-
-        const std::vector<float> & powerSpectrumOut = powerSpectrum->output();
-        int nSpectrum = powerSpectrumOut.size();
-        m_spectrumMag.resize( nSpectrum );
-        for (int i = 0; i < nSpectrum; ++i)
-            m_spectrumMag[i] = std::sqrt( powerSpectrumOut[i] );
-
-        melSpectrum->process( m_spectrumMag );
-
-        mfcc->process( melSpectrum->output() );
-
-        chromaticEntropy->process( powerSpectrum->output() );
-
-#if SEGMENTER_NEW_FEATURES
-        fourHzMod->process( melSpectrum->output() );
-
-        realCepstrum->process( m_spectrumMag );
-
-        cepstralFeatures->process( m_spectrumMag, realCepstrum->output() );
-#endif
-
-#if SEGMENTER_LOGGING
-        if (m_file.is_open())
-        {
-            if (!endOfStream) {
-                if (m_logFrame < m_logFrameLimit) {
-                    m_file << m_logFrame << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << energy->output() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << chromaticEntropy->output() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[2] << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[3] << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << mfcc->output()[4] << SEGMENTER_LOGGING_SEPARATOR;
-#if SEGMENTER_NEW_FEATURES
-                    m_file << cepstralFeatures->pitchDensity() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << cepstralFeatures->tonality() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << cepstralFeatures->tonality1() << SEGMENTER_LOGGING_SEPARATOR;
-                    m_file << fourHzMod->output() << SEGMENTER_LOGGING_SEPARATOR;
-#endif
-                    m_file << std::endl;
-                }
-            }
-            else {
-                m_file.close();
-            }
-        }
-        m_logFrame += m_procContext.stepSize;
-#endif
-
-        Statistics::InputFeatures statInput;
-        statInput.energy = energy->output();
-        statInput.entropy = chromaticEntropy->output();
-        statInput.mfcc2 = mfcc->output()[2];
-        statInput.mfcc3 = mfcc->output()[3];
-        statInput.mfcc4 = mfcc->output()[4];
-
-#if SEGMENTER_NEW_FEATURES
-        statInput.pitchDensity = cepstralFeatures->pitchDensity();
-        statInput.tonality = cepstralFeatures->tonality();
-        statInput.tonality1 = cepstralFeatures->tonality1();
-        statInput.fourHzMod = fourHzMod->output();
-#endif
-
-        statistics->process( statInput, m_statsBuffer );
-
         Feature basicFeatures;
         basicFeatures.hasTimestamp = true;
         basicFeatures.timestamp = m_featureTime;
@@ -367,52 +254,11 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         m_featureTime = m_featureTime + m_featureDuration;
     }
 
-    if (endOfStream)
-        statistics->processRemainingData( m_statsBuffer );
-
     for (int i = 0; i < m_statsBuffer.size(); ++i)
-    {
-        const Statistics::OutputFeatures & stat = m_statsBuffer[i];
-
-        classifier->process( stat.features );
-
-        const std::vector<float> & distribution = classifier->probabilities();
-#if 0
-        float avgClass = 0;
-        for (int i = 0; i < distribution.size(); ++i)
-            avgClass += distribution[i] * i;
-        avgClass /= distribution.size() - 1;
+    {}
 #endif
-        Feature classification;
-        classification.hasTimestamp = true;
-        classification.timestamp = m_statsTime;
-        //classification.values.push_back( avgClass );
-        classification.values = distribution;
-
-        //classification.values.push_back( stat[ Statistics::TONALITY1_MEAN ] );
-
-        //classification.values.resize( Statistics::OUTPUT_FEATURE_COUNT );
-        //std::memcpy( classification.values.data(), &stat.features[0], Statistics::OUTPUT_FEATURE_COUNT * sizeof(float) );
-
-        features[1].push_back( classification );
-
-        m_statsTime = m_statsTime + m_statsStepDuration;
-    }
-
-    m_statsBuffer.clear();
-    m_resampBuffer.erase( m_resampBuffer.begin(), m_resampBuffer.begin() + blockFrame );
 
     return features;
-}
-
-void Plugin::deleteModules()
-{
-    int moduleCount = m_modules.size();
-
-    for (int idx = 0; idx < m_modules.size(); ++idx)
-        delete m_modules[idx];
-
-    m_modules.clear();
 }
 
 } // namespace Segmenter

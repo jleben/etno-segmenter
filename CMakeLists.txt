@@ -7,6 +7,7 @@ set( plugin_src
     plugin/entry.cpp
     plugin/plugin.cpp
     plugin/marsyas_plugin.cpp
+    modules/pipeline.cpp
     modules/classification.cpp
     marsystems/buffer.cpp
     marsystems/linear_trend.cpp
