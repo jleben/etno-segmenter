@@ -83,15 +83,16 @@ void Pipeline::computeStatistics( const float * input )
 
     Vamp::Plugin::FeatureSet features;
 
-#if SEGMENTER_NO_RESAMPLING
-    if (!endOfStream)
-        m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
-#else
-    if (!endOfStream)
-        resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
-    else
-        resampler->processRemainingData( m_resampBuffer );
-#endif
+    if (!m_inputContext.resample) {
+        if (!endOfStream)
+            m_resampBuffer.insert( m_resampBuffer.end(), input, input + m_inputContext.blockSize );
+    }
+    else {
+        if (!endOfStream)
+            resampler->process( input, m_inputContext.blockSize, m_resampBuffer );
+        else
+            resampler->processRemainingData( m_resampBuffer );
+    }
 
     m_featBuffer.clear();
     m_statsBuffer.clear();

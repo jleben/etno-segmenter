@@ -14,9 +14,10 @@
 namespace Segmenter {
 
 struct InputContext {
-    InputContext(): sampleRate(1), blockSize(0) {}
+    InputContext(): sampleRate(1), blockSize(0), resample(true) {}
     float sampleRate;
     int blockSize;
+    bool resample;
 };
 
 class Pipeline
