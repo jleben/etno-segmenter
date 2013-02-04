@@ -1,13 +1,9 @@
 cmake_minimum_required( VERSION 2.8 )
 
-# for config.h:
-include_directories( "/home/jakob/src/marsyas-0.4.8/build" )
+option(BUILD_VAMP_PLUGIN "Build Vamp plugin." ON)
+option(BUILD_EXTRACT_APP "Build extract executable." ON)
 
-set( plugin_src
-    plugin/entry.cpp
-    plugin/plugin.cpp
-    plugin/marsyas_plugin.cpp
-)
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 set( modules_src
     modules/pipeline.cpp
@@ -23,26 +19,51 @@ set( marsystems_src
     marsystems/vampsink.cpp
 )
 
-add_library( plugin MODULE ${plugin_src} ${modules_src} ${marsystems_src} )
+if(BUILD_VAMP_PLUGIN)
+    # for config.h:
+    include_directories( "/home/jakob/src/marsyas-0.4.8/build" )
 
-target_link_libraries( plugin vamp-sdk marsyas samplerate fftw3f m )
+    set( plugin_src
+        plugin/entry.cpp
+        plugin/plugin.cpp
+        plugin/marsyas_plugin.cpp
+    )
 
-set_target_properties( plugin PROPERTIES
-    OUTPUT_NAME segmentervampplugin
-    PREFIX ""
-)
+    add_library( plugin MODULE ${plugin_src} ${modules_src} ${marsystems_src} )
 
-install( TARGETS plugin
-    DESTINATION "lib/vamp"
-)
+    target_link_libraries( plugin vamp-sdk marsyas samplerate fftw3f m )
 
-### Test App
+    set_target_properties( plugin PROPERTIES
+        OUTPUT_NAME segmentervampplugin
+        PREFIX ""
+    )
 
-set( app_src
-    app/app.cpp
-)
+    if(CMAKE_SYSTEM_NAME MATCHES Linux)
+        install( TARGETS plugin DESTINATION "lib/vamp" )
+    endif()
+endif()
 
-add_executable( extract ${app_src} ${modules_src} )
+if(BUILD_EXTRACT_APP)
+    find_package(Dependencies)
 
-target_link_libraries( extract sndfile samplerate fftw3f vamp-sdk m )
+    include_directories(
+        ${FFTW_INCLUDE_DIR}
+        ${SAMPLERATE_INCLUDE_DIR}
+        ${SNDFILE_INCLUDE_DIR}
+        ${VAMP_SDK_INCLUDE_DIR}
+    )
 
+    set( app_src
+        app/app.cpp
+    )
+
+    add_executable( extract ${app_src} ${modules_src} )
+
+    target_link_libraries( extract
+        ${SNDFILE_LIBRARY}
+        ${SAMPLERATE_LIBRARY}
+        ${FFTW_LIBRARY}
+        ${VAMP_SDK_LIBRARY}
+        m
+    )
+endif()
