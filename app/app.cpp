@@ -17,6 +17,7 @@ struct Options
     string output_filename;
     int block_size;
     float resample_rate;
+    int resample_type;
     int limit;
     bool features;
     bool binary;
@@ -24,15 +25,28 @@ struct Options
     Options() :
         block_size(4096 * 3),
         resample_rate(11025.f),
+        resample_type(1),
         limit(0),
         features(false),
-        binary(false)
+        binary(true)
     {}
 };
 
 static void printUsage()
 {
-    cout << "Usage: extract <filename> <options...>" << endl;
+    cout << "Usage: extract <filename> <options...>" << endl << endl;
+
+    cout << "Options:" << endl;
+    cout
+    << "\t -o <filename>..... Output file. Default: extract.out.wav." << endl
+    << "\t -r <sampleRate>... Resample to <sampleRate> before feature extraction. Default: 11025." << endl
+    << "\t --no-resample .... Do not resample. Equivalent to '-r 0'." << endl
+    << "\t -rtype ........... Type of resampling: 0 = linear, 1 = sinc. Default: 1." << endl
+    << "\t -b <blocksize> ... Amount of input frames to read and process at a time." << endl
+    << "\t -F, --features ... Output raw features instead of statistics." << endl
+    << "\t -T, --text ....... Output to text file instead of wav file." << endl
+    << "\t -l <limit> ....... End processing at <limit> % of input file." << endl
+    << "\t -h, --help ....... Print this help." << endl;
 }
 
 static bool checkHasValue( int i, int argc, char **argv  ) {
@@ -44,19 +58,28 @@ static bool checkHasValue( int i, int argc, char **argv  ) {
 
 static bool parseOptions( int argc, char **argv, Options & opt )
 {
-    if (argc < 2 || argv[1][0] == '-') {
-        printUsage();
-        return false;
+    int argi = 1;
+
+    if (argc > 1 && argv[1][0] != '-') {
+        opt.input_filename = argv[1];
+        ++argi;
     }
 
-    opt.input_filename = argv[1];
-
-    int argi = 2;
     while( argi < argc )
     {
         char *arg = argv[argi];
 
-        if (strcmp(arg, "-r") == 0) {
+        if (strcmp(arg, "-h") == 0) {
+            printUsage();
+            return false;
+        }
+        else if (strcmp(arg, "-o") == 0) {
+            if ( !checkHasValue(argi, argc, argv) )
+                return false;
+            ++argi;
+            opt.output_filename = argv[argi];
+        }
+        else if (strcmp(arg, "-r") == 0) {
             if ( !checkHasValue(argi, argc, argv) )
                 return false;
             ++argi;
@@ -71,11 +94,18 @@ static bool parseOptions( int argc, char **argv, Options & opt )
         }
         else if (strcmp(arg, "--no-resample") == 0)
             opt.resample_rate = 0;
-        else if (strcmp(arg, "-o") == 0) {
+        else if (strcmp(arg, "-rtype") == 0)
+        {
             if ( !checkHasValue(argi, argc, argv) )
                 return false;
             ++argi;
-            opt.output_filename = argv[argi];
+            opt.resample_type = atoi(argv[argi]);
+        }
+        else if (strcmp(arg, "-b") == 0) {
+            if ( !checkHasValue(argi, argc, argv) )
+                return false;
+            ++argi;
+            opt.block_size = atoi(argv[argi]);
         }
         else if (strcmp(arg, "-l") == 0) {
             if ( !checkHasValue(argi, argc, argv) )
@@ -84,10 +114,10 @@ static bool parseOptions( int argc, char **argv, Options & opt )
             char *val = argv[argi];
             opt.limit = atoi(val);
         }
-        else if (strcmp(arg, "-f") == 0 || strcmp(arg, "--features") == 0)
+        else if (strcmp(arg, "-F") == 0 || strcmp(arg, "--features") == 0)
             opt.features = true;
-        else if (strcmp(arg, "-b") == 0 || strcmp(arg, "--binary") == 0)
-            opt.binary = true;
+        else if (strcmp(arg, "-T") == 0 || strcmp(arg, "--text") == 0)
+            opt.binary = false;
         else if (arg[0] != '-') {
             cerr << "ERROR: Redundant argument: " << arg << endl;
             return false;
@@ -116,9 +146,12 @@ void printOptions( Options & opt )
     cout << "Options:" << endl;
     cout << '\t' << "- input: " << opt.input_filename << endl;
     cout << '\t' << "- output: " << opt.output_filename << endl;
-    cout << '\t' << "- block size: " << opt.block_size << endl;
+    cout << '\t' << "- block size: " << opt.block_size << "samples" << endl;
     if (opt.resample_rate > 0)
-        cout << '\t' << "- resampling: " << opt.resample_rate << endl;
+        cout << '\t' << "- resampling: "
+             << opt.resample_rate << " Hz "
+             << (opt.resample_type == 0 ? "(linear)" : "(sinc)")
+             << endl;
     else
         cout << '\t' << "- resampling: none" << endl;
     if (opt.limit > 0)
@@ -138,6 +171,16 @@ int main ( int argc, char *argv[] )
     if (!parseOptions( argc, argv, opt ))
         return 1;
 
+    if (opt.input_filename.empty()) {
+        printUsage();
+        return 0;
+    }
+
+    if (opt.block_size < 1024) {
+        cout << "WARNING: Clipping requested block size (" << opt.block_size << ")"
+             << " to minimum (1024)." << endl;
+        opt.block_size = 1024;
+    }
     printOptions(opt);
 
     // open sound file
@@ -191,6 +234,7 @@ int main ( int argc, char *argv[] )
     InputContext inCtx;
     inCtx.sampleRate = sf_info.samplerate;
     inCtx.blockSize = opt.block_size;
+    inCtx.resampleType = opt.resample_type == 0 ? SRC_LINEAR : SRC_SINC_FASTEST;
 
     FourierContext fCtx;
     fCtx.sampleRate = opt.resample_rate > 0 ? opt.resample_rate : inCtx.sampleRate;
