@@ -22,13 +22,13 @@ class Resampler : public Module
     SRC_DATA m_srcData;
 
 public:
-    Resampler( int inputSampleRate, int outputSampleRate = 11025 ):
+    Resampler( int inputSampleRate, int outputSampleRate = 11025, int mode = SRC_SINC_FASTEST ):
         m_inSampleRate(inputSampleRate),
         m_outSampleRate(outputSampleRate)
     {
         int error = 0;
         const int channelCount = 1;
-        m_srcState = src_new( SRC_SINC_FASTEST, channelCount, &error );
+        m_srcState = src_new( mode, channelCount, &error );
         if (error) {
             std::cout << "Resampler ERROR: " << src_strerror(error) << std::endl;
             return;

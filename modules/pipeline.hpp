@@ -9,11 +9,14 @@
 #include <vamp-sdk/RealTime.h>
 #include <vamp-sdk/Plugin.h>
 
+#include <samplerate.h>
+
 namespace Segmenter {
 
 struct InputContext {
-    InputContext(): sampleRate(1), blockSize(0) {}
+    InputContext(): sampleRate(1), blockSize(0), resampleType(SRC_SINC_FASTEST) {}
     float sampleRate;
+    int resampleType;
     int blockSize;
 };
 

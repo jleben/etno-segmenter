@@ -40,7 +40,7 @@ Pipeline::Pipeline ( const InputContext & inCtx,
 
     m_modules.resize( ModuleCount );
 
-    get(ResamplerModule) = new Segmenter::Resampler( in.sampleRate, fourier.sampleRate );
+    get(ResamplerModule) = new Segmenter::Resampler( in.sampleRate, fourier.sampleRate, inCtx.resampleType );
     get(EnergyModule) = new Segmenter::Energy( fourier.blockSize );
     get(PowerSpectrumModule) = new Segmenter::PowerSpectrum( fourier.blockSize );
     get(MelSpectrumModule) = new Segmenter::MelSpectrum( mfccFilterCount, fourier.sampleRate,  fourier.blockSize );
