@@ -43,7 +43,7 @@ static void printUsage()
     << "\t -rtype ........... Type of resampling: 0 = linear, 1 = sinc. Default: 1." << endl
     << "\t -b <blocksize> ... Amount of input frames to read and process at a time." << endl
     << "\t -F, --features ... Output raw features instead of statistics." << endl
-    << "\t -T, --text ....... Output to text file instead of wav file." << endl
+    << "\t -T, --text ....... Output a text file instead of wav file." << endl
     << "\t -l <limit> ....... End processing at <limit> % of input file." << endl
     << "\t -h ............... Print this help." << endl
     << "\t -h stats ......... Print order of statistic output." << endl
