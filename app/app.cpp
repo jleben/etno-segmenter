@@ -40,7 +40,7 @@ static void printUsage()
     << "\t -o <filename>..... Output file. Default: extract.out.wav." << endl
     << "\t -r <sampleRate>... Resample to <sampleRate> before feature extraction. Default: 11025." << endl
     << "\t --no-resample .... Do not resample. Equivalent to '-r 0'." << endl
-    << "\t -rtype ........... Type of resampling: 0 = linear, 1 = sinc. Default: 1." << endl
+    << "\t -rtype <type>..... Type of resampling: 0 = linear, 1 = sinc. Default: 1." << endl
     << "\t -b <blocksize> ... Amount of input frames to read and process at a time." << endl
     << "\t -F, --features ... Output raw features instead of statistics." << endl
     << "\t -T, --text ....... Output a text file instead of wav file." << endl
