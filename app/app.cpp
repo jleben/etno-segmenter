@@ -34,8 +34,7 @@ struct Options
 
 static void printUsage()
 {
-    cout << "Usage: extract <filename> <options...>" << endl << endl;
-
+    cout << "Usage: extract <filename> <options...>" << endl;
     cout << "Options:" << endl;
     cout
     << "\t -o <filename>..... Output file. Default: extract.out.wav." << endl
@@ -46,12 +45,60 @@ static void printUsage()
     << "\t -F, --features ... Output raw features instead of statistics." << endl
     << "\t -T, --text ....... Output to text file instead of wav file." << endl
     << "\t -l <limit> ....... End processing at <limit> % of input file." << endl
-    << "\t -h, --help ....... Print this help." << endl;
+    << "\t -h ............... Print this help." << endl
+    << "\t -h stats ......... Print order of statistic output." << endl
+    << "\t -h features ...... Print order of feature output." << endl
+    << endl;
 }
 
-static bool checkHasValue( int i, int argc, char **argv  ) {
+static void printHelpStatistics()
+{
+    static const char * strings[] = {
+        "Entropy Mean",
+        "Pitch Density Mean",
+        "Tonality Mean",
+        "Tonality 1 Mean",
+        "4 Hz Modulation Mean",
+        "MFCC 2 Mean",
+        "MFCC 3 Mean",
+        "MFCC 4 Mean",
+        "Entropy Delta Variance",
+        "Tonality Fluctuation",
+        "MFCC 2 Standard Deviation",
+        "MFCC 3 Standard Deviation",
+        "MFCC 4 Standard Deviation",
+        "MFCC 2 Delta Standard Deviation",
+        "MFCC 3 Delta Standard Deviation",
+        "MFCC 4 Delta Standard Deviation"
+    };
+
+    cout << "Statistics output contains:" << endl;
+    for (int i = 0; i < sizeof(strings) / sizeof(char*); ++i)
+        cout << '\t' << i << ' ' << strings[i] << endl;
+}
+
+static void printHelpFeatures()
+{
+    static const char * strings[] = {
+        "Energy",
+        "Entropy",
+        "Pitch Density",
+        "Tonality",
+        "Tonality1",
+        "4 Hz Modulation",
+        "MFCC 2",
+        "MFCC 3",
+        "MFCC 4"
+    };
+
+    cout << "Features output contains:" << endl;
+    for (int i = 0; i < sizeof(strings) / sizeof(char*); ++i)
+        cout << '\t' << i << ' ' << strings[i] << endl;
+}
+
+static bool checkHasValue( int i, int argc, char **argv, bool silent = false ) {
     bool ok = (i+1 < argc) && (argv[i+1][0] != '-');
-    if (!ok)
+    if (!ok && !silent)
         cerr << "Option " << argv[i] << " needs an argument!" << endl;
     return ok;
 }
@@ -70,6 +117,19 @@ static bool parseOptions( int argc, char **argv, Options & opt )
         char *arg = argv[argi];
 
         if (strcmp(arg, "-h") == 0) {
+            if (checkHasValue(argi, argc, argv, true))
+            {
+                ++argi;
+                char *topic = argv[argi];
+                if (strcmp(topic, "stats") == 0) {
+                    printHelpStatistics();
+                    return false;
+                }
+                else if (strcmp(topic, "features") == 0) {
+                    printHelpFeatures();
+                    return false;
+                }
+            }
             printUsage();
             return false;
         }
@@ -146,7 +206,7 @@ void printOptions( Options & opt )
     cout << "Options:" << endl;
     cout << '\t' << "- input: " << opt.input_filename << endl;
     cout << '\t' << "- output: " << opt.output_filename << endl;
-    cout << '\t' << "- block size: " << opt.block_size << "samples" << endl;
+    cout << '\t' << "- block size: " << opt.block_size << " samples" << endl;
     if (opt.resample_rate > 0)
         cout << '\t' << "- resampling: "
              << opt.resample_rate << " Hz "
@@ -158,7 +218,7 @@ void printOptions( Options & opt )
         cout << '\t' << "- limit: " << opt.limit << "%" << endl;
     else
         cout << '\t' << "- limit: none" << endl;
-    cout << '\t' << "- type: " << (opt.features ? "features" : "statistics") << endl;
+    cout << '\t' << "- mode: " << (opt.features ? "features" : "statistics") << endl;
     cout << '\t' << "- format: " << (opt.binary ? "binary" : "text") << endl;
 }
 
