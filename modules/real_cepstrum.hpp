@@ -39,7 +39,7 @@ public:
 
         m_output.resize(m_bufSize);
 
-        m_outputScale = 1.f / std::sqrt( 2 * m_bufSize );
+        m_outputScale = 1.f / std::sqrt( 2.0f * m_bufSize );
     }
 
     ~RealCepstrum()
@@ -65,8 +65,10 @@ public:
 
         fftwf_execute( m_plan );
 
+        m_fft_out[0] /= sqrt(2.0f);
         for (int i = 0; i < nSpectrum; ++i)
-            m_output[i] = m_fft_out[i] * m_outputScale * 0.5f;
+            //m_output[i] = m_fft_out[i] * m_outputScale * 0.5f;
+            m_output[i] = m_fft_out[i] * 0.5f;
     }
 
     const std::vector<float> & output() const { return m_output; }

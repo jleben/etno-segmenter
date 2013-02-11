@@ -22,7 +22,8 @@ class MelSpectrum : public Module
 public:
     MelSpectrum( int coefficientCount, float sampleRate, int windowSize )
     {
-        const double fh = 0.5;
+        //const double fh = 0.5;
+        const double fh = 11025*0.5/sampleRate;
         const double fl = 0;
         initMelFilters(coefficientCount, windowSize, sampleRate, fl, fh, m_melFilterBank);
 
