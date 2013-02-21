@@ -51,6 +51,4 @@ inline double pi() {
 
 } // namespace Segmenter
 
-#define SEGMENTER_NEW_FEATURES 1
-
 #endif // SEGMENTER_MODULE_HPP_INCLUDED

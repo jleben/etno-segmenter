@@ -34,11 +34,7 @@ class Classifier : public Module
 {
     static const int s_classCount = 5;
 
-#if SEGMENTER_NEW_FEATURES
     static const int s_inputCount = 16;
-#else
-    static const int s_inputCount = 9;
-#endif
 
     static const float s_coeffs[s_inputCount+1][s_classCount-1];
 

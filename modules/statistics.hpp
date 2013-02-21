@@ -32,7 +32,6 @@ class Statistics : public Module
 public:
 
     enum OutputFeature {
-#if SEGMENTER_NEW_FEATURES
         ENTROPY_MEAN = 0,
         PITH_DENSITY_MEAN,
         TONALITY_MEAN,
@@ -49,17 +48,6 @@ public:
         MFCC2_DELTA_STD,
         MFCC3_DELTA_STD,
         MFCC4_DELTA_STD,
-#else
-        ENTROPY_MEAN = 0,
-        MFCC2_VAR,
-        MFCC3_VAR,
-        MFCC4_VAR,
-        ENTROPY_DELTA_VAR,
-        MFCC2_DELTA_VAR,
-        MFCC3_DELTA_VAR,
-        MFCC4_DELTA_VAR,
-        ENERGY_FLUX,
-#endif
 
         OUTPUT_FEATURE_COUNT
     };
@@ -67,12 +55,10 @@ public:
     struct InputFeatures {
         float energy;
         float entropy;
-#if SEGMENTER_NEW_FEATURES
         float pitchDensity;
         float tonality;
         float tonality1;
         float fourHzMod;
-#endif
         float mfcc2;
         float mfcc3;
         float mfcc4;
@@ -181,7 +167,6 @@ private:
 
             OutputFeatures output;
 
-#if SEGMENTER_NEW_FEATURES
             output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
             output[PITH_DENSITY_MEAN] = mean( INPUT_VECTOR(pitchDensity) );
             output[TONALITY_MEAN] = mean( INPUT_VECTOR(tonality) );
@@ -200,19 +185,6 @@ private:
             output[MFCC2_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc2) );
             output[MFCC3_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc3) );
             output[MFCC4_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc4) );
-#else
-            output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
-            output[MFCC2_VAR] = variance( INPUT_VECTOR(mfcc2 ) );
-            output[MFCC3_VAR] = variance( INPUT_VECTOR(mfcc3 ) );
-            output[MFCC4_VAR] = variance( INPUT_VECTOR(mfcc4 ) );
-            output[ENTROPY_DELTA_VAR] = variance( DELTA_VECTOR(entropy) );
-            output[MFCC2_DELTA_VAR] = variance( DELTA_VECTOR(mfcc2) );
-            output[MFCC3_DELTA_VAR] = variance( DELTA_VECTOR(mfcc3) );
-            output[MFCC4_DELTA_VAR] = variance( DELTA_VECTOR(mfcc4) );
-            float energyMean = mean( INPUT_VECTOR(energy) );
-            float energyVar = variance( INPUT_VECTOR(energy), energyMean );
-            output[ENERGY_FLUX] = energyMean != 0.f ? energyVar / (energyMean * energyMean) : 0.f;
-#endif
 
             outBuffer.push_back(output);
 

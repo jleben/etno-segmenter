@@ -23,7 +23,6 @@
 namespace Segmenter {
 
 const float Classifier::s_coeffs[Classifier::s_inputCount+1][Classifier::s_classCount-1] =
-#if SEGMENTER_NEW_FEATURES
 {
     { 7.2167803598f, 6.7546674784f,  2.4266379892f, -2.4717760029f },
     { -3.5872281700f, 0.6072347911f, 1.8414028714f, 2.2034845670f },
@@ -43,7 +42,8 @@ const float Classifier::s_coeffs[Classifier::s_inputCount+1][Classifier::s_class
     { 0.0810537624f, -0.9897814477f, -0.1841711166f, 0.1095410510f },
     { -0.2802757255f, -1.3975128828f, -4.3334540597f, -1.7647213147f },
 };
-#else
+
+/* Coefficients for old set of features:
 {
     {-2.54360f,   1.20630f,   1.25340f,   1.02670f},
     {0.01410f,   0.01860f,   0.00570f,   0.02100f},
@@ -56,6 +56,6 @@ const float Classifier::s_coeffs[Classifier::s_inputCount+1][Classifier::s_class
     {-0.40990f,  -1.52120f,   -1.16710f, -0.98170f},
     {9.72240f, -0.61690f,     10.70270f,   2.26640f}
 };
-#endif
+*/
 
 } // namespace Segmenter

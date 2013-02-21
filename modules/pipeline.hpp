@@ -67,14 +67,11 @@ private:
         MelSpectrumModule,
         MfccModule,
         ChromaticEntropyModule,
-        StatisticsModule,
-        ClassifierModule,
-
-    #if SEGMENTER_NEW_FEATURES
         RealCepstrumModule,
         CepstralFeaturesModule,
         FourHzModulationModule,
-    #endif
+        StatisticsModule,
+        ClassifierModule,
 
         ModuleCount
     };

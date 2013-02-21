@@ -45,7 +45,6 @@ public:
         m_dctIn = fftwf_alloc_real(coefficientCount);
         m_dctOut = fftwf_alloc_real(coefficientCount);
         m_plan = fftwf_plan_r2r_1d(coefficientCount, m_dctIn, m_dctOut,
-//                                   FFTW_R2HC, FFTW_ESTIMATE);
                                    FFTW_REDFT10, FFTW_ESTIMATE);
 
         m_output.resize(coefficientCount);
@@ -70,25 +69,10 @@ public:
             m_dctIn[idx] = std::log( std::max(ath, melSpectrum[idx]) );
         }
 
-        //int cnt=0;
-        //for (int idx = 0; idx < coeffCount; idx+=2)
-        //{
-        //    m_dctIn[cnt++] = std::log( std::max(ath, melSpectrum[idx]) );
-        //}
-        //for (int idx = 2*(int)floor(coeffCount/2.0f)-1; idx > 0; idx-=2)
-        //{
-        //    m_dctIn[cnt++] = std::log( std::max(ath, melSpectrum[idx]) );
-        //}
-
         fftwf_execute( m_plan );
 
-//#if SEGMENTER_NEW_FEATURES
-//        for (int idx = 0; idx < coeffCount; ++idx)
-//            m_output[idx] = m_dctOut[idx] * m_outputScale;
-//#else
         m_dctOut[0] /= sqrt(2.0f);
         std::memcpy( m_output.data(), m_dctOut, sizeof(float) * coeffCount );
-//#endif
     }
 
     const std::vector<float> & output() const { return m_output; }

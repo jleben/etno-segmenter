@@ -67,14 +67,11 @@ Pipeline::Pipeline ( const InputContext & inCtx,
     get(MfccModule) = new Segmenter::Mfcc( mfccFilterCount );
     get(ChromaticEntropyModule) = new Segmenter::ChromaticEntropy( fourier.sampleRate, fourier.blockSize,
                                                           chromEntropyLoFreq, chromEntropyHiFreq );
-    get(StatisticsModule) = new Segmenter::Statistics(stat.blockSize, stat.stepSize, statDeltaBlockSize);
-    get(ClassifierModule) = new Segmenter::Classifier();
-
-#if SEGMENTER_NEW_FEATURES
     get(RealCepstrumModule) = new Segmenter::RealCepstrum( fourier.blockSize );
     get(CepstralFeaturesModule) = new Segmenter::CepstralFeatures( fourier.sampleRate, fourier.blockSize );
     get(FourHzModulationModule) = new Segmenter::FourHzModulation( fourier.sampleRate, fourier.blockSize, fourier.stepSize );
-#endif
+    get(StatisticsModule) = new Segmenter::Statistics(stat.blockSize, stat.stepSize, statDeltaBlockSize);
+    get(ClassifierModule) = new Segmenter::Classifier();
 }
 
 Pipeline::~Pipeline()
@@ -94,11 +91,9 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
     Segmenter::Mfcc *mfcc = static_cast<Segmenter::Mfcc*>( get(MfccModule) );
     Segmenter::ChromaticEntropy *chromaticEntropy = static_cast<Segmenter::ChromaticEntropy*>( get(ChromaticEntropyModule) );
     Segmenter::Statistics *statistics = static_cast<Segmenter::Statistics*>( get(StatisticsModule) );
-#if SEGMENTER_NEW_FEATURES
     Segmenter::FourHzModulation *fourHzMod = static_cast<Segmenter::FourHzModulation*>( get(FourHzModulationModule) );
     Segmenter::RealCepstrum *realCepstrum = static_cast<Segmenter::RealCepstrum*>( get(RealCepstrumModule) );
     Segmenter::CepstralFeatures *cepstralFeatures = static_cast<Segmenter::CepstralFeatures*>( get(CepstralFeaturesModule) );
-#endif
 
     Vamp::Plugin::FeatureSet features;
 
@@ -141,13 +136,11 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 
         chromaticEntropy->process( powerSpectrum->output() );
 
-#if SEGMENTER_NEW_FEATURES
         fourHzMod->process( melSpectrum->output() );
 
         realCepstrum->process( m_spectrumMag );
 
         cepstralFeatures->process( m_spectrumMag, realCepstrum->output() );
-#endif
 
         Statistics::InputFeatures statInput;
         statInput.energy = energy->output();
@@ -155,12 +148,10 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
         statInput.mfcc2 = mfcc->output()[2];
         statInput.mfcc3 = mfcc->output()[3];
         statInput.mfcc4 = mfcc->output()[4];
-#if SEGMENTER_NEW_FEATURES
         statInput.pitchDensity = cepstralFeatures->pitchDensity();
         statInput.tonality = cepstralFeatures->tonality();
         statInput.tonality1 = cepstralFeatures->tonality1();
         statInput.fourHzMod = fourHzMod->output();
-#endif
 
         m_featBuffer.push_back( statInput );
 

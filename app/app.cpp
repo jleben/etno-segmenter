@@ -369,12 +369,10 @@ int main ( int argc, char *argv[] )
                     const Statistics::InputFeatures & features = pipeline->features()[t];
                     text_out << features.energy << '\t';
                     text_out << features.entropy << '\t';
-#if SEGMENTER_NEW_FEATURES
                     text_out << features.pitchDensity << '\t';
                     text_out << features.tonality << '\t';
                     text_out << features.tonality1 << '\t';
                     text_out << features.fourHzMod << '\t';
-#endif
                     text_out << features.mfcc2 << '\t';
                     text_out << features.mfcc3 << '\t';
                     text_out << features.mfcc4 << '\t';

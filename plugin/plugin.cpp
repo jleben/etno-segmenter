@@ -243,10 +243,8 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
         Feature basicFeatures;
         basicFeatures.hasTimestamp = true;
         basicFeatures.timestamp = m_featureTime;
-#if SEGMENTER_NEW_FEATURES
         //basicFeatures.values.push_back( fourHzMod->output() );
         basicFeatures.values.push_back( cepstralFeatures->tonality() );
-#endif
         /*
         basicFeatures.values.push_back( chromaticEntropy->output() );
         basicFeatures.values.push_back( mfcc->output()[2] );

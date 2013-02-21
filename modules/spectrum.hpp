@@ -28,7 +28,7 @@
 #include <cstring>
 #include <fftw3.h>
 
-#define POWER_SPECTRUM_SCALING SEGMENTER_NEW_FEATURES
+#define POWER_SPECTRUM_SCALING 1
 
 namespace Segmenter {
 
