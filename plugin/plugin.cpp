@@ -135,6 +135,8 @@ void Plugin::createPipeline()
     InputContext inCtx;
     inCtx.sampleRate = m_inputSampleRate;
     inCtx.blockSize = m_blockSize;
+    // FIXME:
+    inCtx.resampleType = SRC_LINEAR;
 
     FourierContext fCtx;
     if (noResampling) {
@@ -166,24 +168,6 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 {
     OutputList list;
 
-#if 0
-    int featureFrames = std::ceil(
-        m_pipeline->fourierContext().stepSize
-        * ((double) m_inputSampleRate / m_pipeline->fourierContext().sampleRate) );
-
-    double featureSampleRate = (double) m_inputContext.sampleRate / featureFrames;
-
-    OutputDescriptor outStat;
-    outStat.identifier = "features";
-    outStat.name = "Features";
-    outStat.sampleType = OutputDescriptor::FixedSampleRate;
-    outStat.sampleRate = featureSampleRate;
-    outStat.hasFixedBinCount = true;
-    outStat.binCount = 1;
-
-    list.push_back(outStat);
-#endif
-
     OutputDescriptor outClasses;
     outClasses.identifier = "classification";
     outClasses.name = "Classification";
@@ -210,6 +194,58 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 
     list.push_back(outClasses);
 
+//#if 0
+    // feature output
+
+    double featureSampleRate;
+    if (m_pipeline) {
+        int featureFrames =
+                std::ceil (
+                    m_pipeline->fourierContext().stepSize
+                    * ((double) m_pipeline->inputContext().sampleRate / m_pipeline->fourierContext().sampleRate) );
+        featureSampleRate = (double) m_pipeline->inputContext().sampleRate / featureFrames;
+    }
+    else
+        featureSampleRate = 1;
+
+    OutputDescriptor outFeat;
+    outFeat.identifier = "features";
+    outFeat.name = "Features";
+    outFeat.sampleType = OutputDescriptor::FixedSampleRate;
+    outFeat.sampleRate = featureSampleRate;
+    outFeat.hasFixedBinCount = true;
+    outFeat.binCount = 1;
+
+    list.push_back(outFeat);
+
+    // statistics output
+
+    double statSampleRate;
+    if (m_pipeline) {
+        int statFrames = std::ceil(
+                    m_pipeline->fourierContext().stepSize * m_pipeline->statisticContext().stepSize
+                    * ((double) m_pipeline->inputContext().sampleRate / m_pipeline->fourierContext().sampleRate) );
+        statSampleRate = (double) m_pipeline->inputContext().sampleRate / statFrames;
+        std::cout << "*** statSampleRate = " << statSampleRate << std::endl;
+
+        const_cast<Vamp::RealTime &>(m_statDuration) =
+                Vamp::RealTime::frame2RealTime( statFrames, m_inputSampleRate );
+    }
+    else
+        statSampleRate = 1;
+
+
+    OutputDescriptor outStat;
+    outStat.identifier = "statistics";
+    outStat.name = "Statistics";
+    outStat.sampleType = OutputDescriptor::FixedSampleRate;
+    outStat.sampleRate = statSampleRate;
+    outStat.hasFixedBinCount = true;
+    outStat.binCount = 1;
+
+    list.push_back(outStat);
+
+//#endif
     return list;
 }
 
@@ -235,32 +271,17 @@ Vamp::Plugin::FeatureSet Plugin::getFeatures(const float * input, Vamp::RealTime
 
     m_pipeline->computeClassification( features[0] );
 
-#if 0
-    for ( blockFrame = 0;
-          blockFrame <= (int) m_resampBuffer.size() - m_procContext.blockSize;
-          blockFrame += m_procContext.stepSize )
+    for (int i = 0; i < m_pipeline->statistics().size(); ++i)
     {
-        Feature basicFeatures;
-        basicFeatures.hasTimestamp = true;
-        basicFeatures.timestamp = m_featureTime;
-        //basicFeatures.values.push_back( fourHzMod->output() );
-        basicFeatures.values.push_back( cepstralFeatures->tonality() );
-        /*
-        basicFeatures.values.push_back( chromaticEntropy->output() );
-        basicFeatures.values.push_back( mfcc->output()[2] );
-        basicFeatures.values.push_back( mfcc->output()[3] );
-        basicFeatures.values.push_back( mfcc->output()[4] );
-        basicFeatures.values.push_back( energy->output() );
-        */
+        Feature stat;
+        stat.hasTimestamp = true;
+        stat.timestamp = m_statTime;
+        stat.values.push_back( m_pipeline->statistics()[i][Statistics::ENERGY_GATE_MEAN] );
 
-        features[0].push_back(basicFeatures);
+        features[2].push_back( stat );
 
-        m_featureTime = m_featureTime + m_featureDuration;
+        m_statTime = m_statTime + m_statDuration;
     }
-
-    for (int i = 0; i < m_statsBuffer.size(); ++i)
-    {}
-#endif
 
     return features;
 }

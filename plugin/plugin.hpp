@@ -74,6 +74,9 @@ private:
 
     Vamp::RealTime m_featureDuration;
     Vamp::RealTime m_featureTime;
+
+    Vamp::RealTime m_statDuration;
+    Vamp::RealTime m_statTime;
 };
 
 } // namespace Segmenter
