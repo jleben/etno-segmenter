@@ -24,6 +24,7 @@
 #include "module.hpp"
 
 #include <vector>
+#include <cassert>
 
 namespace Segmenter {
 
@@ -53,32 +54,66 @@ public:
         OUTPUT_FEATURE_COUNT
     };
 
+    enum InputFeature {
+        ENERGY = 0,
+        ENERGY_GATE,
+        ENTROPY,
+        PITCH_DENSITY,
+        TONALITY,
+        TONALITY1,
+        FOUR_HZ_MOD,
+        MFCC2,
+        MFCC3,
+        MFCC4,
+
+        INPUT_FEATURE_COUNT
+    };
+
     struct InputFeatures {
-        float energy;
-        float energyGate;
-        float entropy;
-        float pitchDensity;
-        float tonality;
-        float tonality1;
-        float fourHzMod;
-        float mfcc2;
-        float mfcc3;
-        float mfcc4;
+        float data [INPUT_FEATURE_COUNT];
+        float & operator [] (InputFeature i) { return data[i]; }
+        const float & operator [] (InputFeature i) const { return data[i]; }
     };
 
     struct OutputFeatures {
-        float features [OUTPUT_FEATURE_COUNT];
-
-        float & operator [] (int i) { return features[i]; }
-        const float & operator [] (int i) const { return features[i]; }
+        float data [OUTPUT_FEATURE_COUNT];
+        float & operator [] (OutputFeature i) { return data[i]; }
+        const float & operator [] (OutputFeature i) const { return data[i]; }
     };
 
 private:
+    enum DeltaFeature {
+        ENTROPY_DELTA = 0,
+        MFCC2_DELTA,
+        MFCC3_DELTA,
+        MFCC4_DELTA,
+
+        DELTA_FEATURE_COUNT
+    };
+
     struct DeltaFeatures {
-        float entropy;
-        float mfcc2;
-        float mfcc3;
-        float mfcc4;
+        float data [DELTA_FEATURE_COUNT];
+        float & operator [] (DeltaFeature i) { return data[i]; }
+        const float & operator [] (DeltaFeature i) const { return data[i]; }
+    };
+
+
+    struct Vector {
+        float *data;
+        int observations;
+        int samples;
+
+        Vector( std::vector<InputFeatures> & feature_vector, int index, int count, InputFeature feature ):
+            data( &feature_vector[index][feature] ),
+            observations( INPUT_FEATURE_COUNT ),
+            samples( count )
+        {};
+
+        Vector( std::vector<DeltaFeatures> & feature_vector, int index, int count, DeltaFeature feature ):
+            data( &feature_vector[index][feature] ),
+            observations( DELTA_FEATURE_COUNT ),
+            samples( count )
+        {};
     };
 
     int m_windowSize;
@@ -140,19 +175,13 @@ private:
         const int lastInputToProcess = inputBufSize - deltaFilterSize;
         for (int idx = m_deltaBuffer.size(); idx <= lastInputToProcess; ++idx)
         {
-#define APPLY_FILTER( dst, member, srcIdx ) \
-    dst.member = 0; \
-    for (int filterIdx = 0; filterIdx < deltaFilterSize; ++filterIdx) \
-        dst.member += m_deltaFilter[filterIdx] * m_inputBuffer[srcIdx + filterIdx].member;
+            DeltaFeatures deltaFeatures;
+            deltaFeatures[ENTROPY_DELTA] = delta( vector(ENTROPY, idx, deltaFilterSize) );
+            deltaFeatures[MFCC2_DELTA] = delta( vector(MFCC2, idx, deltaFilterSize) );
+            deltaFeatures[MFCC3_DELTA] = delta( vector(MFCC3, idx, deltaFilterSize) );
+            deltaFeatures[MFCC4_DELTA] = delta( vector(MFCC4, idx, deltaFilterSize) );
 
-            DeltaFeatures delta;
-            APPLY_FILTER( delta, entropy, idx );
-            APPLY_FILTER( delta, mfcc2, idx );
-            APPLY_FILTER( delta, mfcc3, idx );
-            APPLY_FILTER( delta, mfcc4, idx );
-            m_deltaBuffer.push_back( delta );
-
-#undef APPLY_FILTER
+            m_deltaBuffer.push_back( deltaFeatures );
         }
 
         // compute statistics on inputs & deltas
@@ -160,34 +189,43 @@ private:
         int idx;
         for (idx = 0; idx <= lastDeltaToProcess; idx += m_stepSize)
         {
-            //std::cout << "*********** idx = " << idx;
+            int input_idx = idx + m_halfFilterLen;
+
+            Vector gate_vector = vector(ENERGY_GATE, input_idx, m_windowSize);
+
 #define INPUT_VECTOR( feature ) \
-        &m_inputBuffer[idx + m_halfFilterLen].feature, m_windowSize, (sizeof(InputFeatures) / sizeof(float))
+    vector(feature, input_idx, m_windowSize), gate_vector
 
 #define DELTA_VECTOR( feature ) \
-        &m_deltaBuffer[idx].feature, m_windowSize, (sizeof(DeltaFeatures) / sizeof(float))
+    vector(feature, idx, m_windowSize), gate_vector
 
             OutputFeatures output;
 
-            output[ENTROPY_MEAN] = mean( INPUT_VECTOR(entropy) );
-            output[PITH_DENSITY_MEAN] = mean( INPUT_VECTOR(pitchDensity) );
-            output[TONALITY_MEAN] = mean( INPUT_VECTOR(tonality) );
-            output[TONALITY1_MEAN] = mean( INPUT_VECTOR(tonality1) );
-            output[FOUR_HZ_MOD_MEAN] = mean( INPUT_VECTOR(fourHzMod) );
-            output[MFCC2_MEAN] = mean( INPUT_VECTOR(mfcc2) );
-            output[MFCC3_MEAN] = mean( INPUT_VECTOR(mfcc3) );
-            output[MFCC4_MEAN] = mean( INPUT_VECTOR(mfcc4) );
-            output[ENTROPY_DELTA_VAR] = variance( DELTA_VECTOR(entropy) );
+            output[ENTROPY_MEAN] = mean( INPUT_VECTOR( ENTROPY ) );
+            output[PITH_DENSITY_MEAN] = mean( INPUT_VECTOR( PITCH_DENSITY ) );
+            output[TONALITY_MEAN] = mean( INPUT_VECTOR( TONALITY ) );
+            output[TONALITY1_MEAN] = mean( INPUT_VECTOR( TONALITY1 ) );
+            output[FOUR_HZ_MOD_MEAN] = mean( INPUT_VECTOR( FOUR_HZ_MOD ) );
+            output[MFCC2_MEAN] = mean( INPUT_VECTOR( MFCC2 ) );
+            output[MFCC3_MEAN] = mean( INPUT_VECTOR( MFCC3 ) );
+            output[MFCC4_MEAN] = mean( INPUT_VECTOR( MFCC4 ) );
+            output[ENTROPY_DELTA_VAR] = variance( DELTA_VECTOR( ENTROPY_DELTA ) );
             float tonalityMean = output[TONALITY_MEAN];
-            float tonalityVar = variance( INPUT_VECTOR(tonality), tonalityMean );
+            float tonalityVar = variance( INPUT_VECTOR( TONALITY ), tonalityMean );
             output[TONALITY_FLUCT] = tonalityMean != 0.f ? tonalityVar / (tonalityMean * tonalityMean) : 0.f;
-            output[MFCC2_STD] = stdDev( INPUT_VECTOR(mfcc2), output[MFCC2_MEAN] );
-            output[MFCC3_STD] = stdDev( INPUT_VECTOR(mfcc3), output[MFCC3_MEAN] );
-            output[MFCC4_STD] = stdDev( INPUT_VECTOR(mfcc4), output[MFCC4_MEAN] );
-            output[MFCC2_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc2) );
-            output[MFCC3_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc3) );
-            output[MFCC4_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc4) );
-            output[ENERGY_GATE_MEAN] = mean( INPUT_VECTOR(energyGate) );
+            output[MFCC2_STD] = stdDev( INPUT_VECTOR( MFCC2 ), output[MFCC2_MEAN] );
+            output[MFCC3_STD] = stdDev( INPUT_VECTOR( MFCC3 ), output[MFCC3_MEAN] );
+            output[MFCC4_STD] = stdDev( INPUT_VECTOR( MFCC4 ), output[MFCC4_MEAN] );
+            output[MFCC2_DELTA_STD] = stdDev( DELTA_VECTOR( MFCC2_DELTA ) );
+            output[MFCC3_DELTA_STD] = stdDev( DELTA_VECTOR( MFCC3_DELTA ) );
+            output[MFCC4_DELTA_STD] = stdDev( DELTA_VECTOR( MFCC4_DELTA ) );
+
+            float gate_mean = 0.f;
+            float *gate_data = gate_vector.data;
+            for (int i = 0; i < gate_vector.samples; ++i, gate_data += gate_vector.observations)
+                gate_mean += *gate_data;
+            gate_mean /= gate_vector.samples;
+            output[ENERGY_GATE_MEAN] = gate_mean;
 
             outBuffer.push_back(output);
 
@@ -198,6 +236,16 @@ private:
         // remove processed inputs & deltas
         m_inputBuffer.erase( m_inputBuffer.begin(), m_inputBuffer.begin() + idx );
         m_deltaBuffer.erase( m_deltaBuffer.begin(), m_deltaBuffer.begin() + idx );
+    }
+
+    Vector vector( InputFeature feature, int idx, int count )
+    {
+        return Vector(m_inputBuffer, idx, count, feature);
+    }
+
+    Vector vector( DeltaFeature feature, int idx, int count )
+    {
+        return Vector(m_deltaBuffer, idx, count, feature);
     }
 
     void initDeltaFilter( int filterLen )
@@ -212,51 +260,74 @@ private:
         m_halfFilterLen = halfFilterLen;
     }
 
-    void applyFilter( const std::vector<float> & filter, float *dst, float *src, int src_spacing )
+    float delta( const Vector & feature_vector )
     {
-        int filterSize = filter.size();
-        *dst = 0;
-        for (int filterIdx = 0; filterIdx < filterSize; ++filterIdx) {
-            *dst += *src * filter[filterIdx];
-            src += src_spacing;
-        }
+        int filter_size = m_deltaFilter.size();
+        float *feature_data = feature_vector.data;
+        float output = 0;
+        for (int idx = 0; idx < filter_size; ++idx, feature_data += feature_vector.observations)
+            output += *feature_data * m_deltaFilter[idx];
+        return output;
     }
 
-    float mean ( float *vec, int count, int spacing )
+    float mean ( const Vector & feature_vector, const Vector & gate_vector )
     {
+        assert(feature_vector.samples == gate_vector.samples);
+        float *feature_data = feature_vector.data;
+        float *gate_data = gate_vector.data;
         float mean = 0.f;
-        for (int i = 0; i < count; ++i, vec += spacing)
-            mean += *vec;
-        mean /= count;
+        int count = 0;
+        for (int i = 0; i < feature_vector.samples; ++i,
+             feature_data += feature_vector.observations, gate_data += gate_vector.observations)
+        {
+            if (*gate_data == 1.f) {
+                mean += *feature_data;
+                ++count;
+            }
+        }
+        if (count)
+            mean /= count;
         return mean;
     }
 
-    float variance ( float *vec, int count, int spacing )
+    float variance ( const Vector & feature_vector, const Vector & gate_vector )
     {
-        float m = mean( vec, count, spacing );
-        return variance( vec, count, spacing, m );
+        float m = mean( feature_vector, gate_vector );
+        return variance( feature_vector, gate_vector, m );
     }
 
-    float variance ( float *vec, int count, int spacing, float mean )
+    float variance ( const Vector & feature_vector, const Vector & gate_vector, float mean )
     {
+        assert(feature_vector.samples == gate_vector.samples);
+        float *feature_data = feature_vector.data;
+        float *gate_data = gate_vector.data;
         float variance = 0.f;
-        for (int i = 0; i < count; ++i, vec += spacing) {
-            float dev = *vec - mean;
-            variance += dev * dev;
+        int count = 0;
+        for (int i = 0; i < feature_vector.samples; ++i,
+             feature_data += feature_vector.observations, gate_data += gate_vector.observations)
+        {
+            if (*gate_data == 1.f) {
+                float dev = *feature_data - mean;
+                variance += dev * dev;
+                ++count;
+            }
         }
-        variance /= count - 1;
+        if (count > 1)
+            variance /= count - 1;
+        else
+            variance = 0.f;
         return variance;
     }
 
-    float stdDev ( float *vec, int count, int spacing, float mean )
+    float stdDev ( const Vector & feature_vector, const Vector & gate_vector, float mean )
     {
-        float var = variance(vec, count, spacing, mean);
+        float var = variance( feature_vector, gate_vector, mean );
         return std::sqrt(var);
     }
 
-    float stdDev ( float *vec, int count, int spacing )
+    float stdDev ( const Vector & feature_vector, const Vector & gate_vector )
     {
-        float var = variance(vec, count, spacing);
+        float var = variance( feature_vector, gate_vector );
         return std::sqrt(var);
     }
 };

@@ -324,16 +324,8 @@ int main ( int argc, char *argv[] )
             else {
                 for (int t = 0; t < featureN; ++t) {
                     const Statistics::InputFeatures & features = pipeline->features()[t];
-                    text_out << features.energy << '\t';
-                    text_out << features.energyGate << '\t';
-                    text_out << features.entropy << '\t';
-                    text_out << features.pitchDensity << '\t';
-                    text_out << features.tonality << '\t';
-                    text_out << features.tonality1 << '\t';
-                    text_out << features.fourHzMod << '\t';
-                    text_out << features.mfcc2 << '\t';
-                    text_out << features.mfcc3 << '\t';
-                    text_out << features.mfcc4 << '\t';
+                    for (int f = 0; f < Statistics::INPUT_FEATURE_COUNT; ++f)
+                        text_out << features[(Statistics::InputFeature)f] << '\t';
                     text_out << endl;
                 }
             }
@@ -351,7 +343,7 @@ int main ( int argc, char *argv[] )
                 for (int t = 0; t < statN; ++t) {
                     const Statistics::OutputFeatures & stats = pipeline->statistics()[t];
                     for (int f = 0; f < Statistics::OUTPUT_FEATURE_COUNT; ++f)
-                        text_out << stats[f] << '\t';
+                        text_out << stats[(Statistics::OutputFeature)f] << '\t';
                     text_out << endl;
                 }
             }

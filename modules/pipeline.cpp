@@ -151,16 +151,16 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
         cepstralFeatures->process( m_spectrumMag, realCepstrum->output() );
 
         Statistics::InputFeatures statInput;
-        statInput.energy = energy->output();
-        statInput.energyGate = energyGate->output();
-        statInput.entropy = chromaticEntropy->output();
-        statInput.mfcc2 = mfcc->output()[2];
-        statInput.mfcc3 = mfcc->output()[3];
-        statInput.mfcc4 = mfcc->output()[4];
-        statInput.pitchDensity = cepstralFeatures->pitchDensity();
-        statInput.tonality = cepstralFeatures->tonality();
-        statInput.tonality1 = cepstralFeatures->tonality1();
-        statInput.fourHzMod = fourHzMod->output();
+        statInput[Statistics::ENERGY] = energy->output();
+        statInput[Statistics::ENERGY_GATE] = energyGate->output();
+        statInput[Statistics::ENTROPY]  = chromaticEntropy->output();
+        statInput[Statistics::MFCC2] = mfcc->output()[2];
+        statInput[Statistics::MFCC3] = mfcc->output()[3];
+        statInput[Statistics::MFCC4] = mfcc->output()[4];
+        statInput[Statistics::PITCH_DENSITY] = cepstralFeatures->pitchDensity();
+        statInput[Statistics::TONALITY] = cepstralFeatures->tonality();
+        statInput[Statistics::TONALITY1] = cepstralFeatures->tonality1();
+        statInput[Statistics::FOUR_HZ_MOD] = fourHzMod->output();
 
         m_featBuffer.push_back( statInput );
 
