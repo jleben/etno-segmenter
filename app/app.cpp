@@ -20,6 +20,8 @@
 
 #include "../modules/pipeline.hpp"
 
+#include <boost/program_options.hpp>
+
 #include <sndfile.h>
 
 #include <iostream>
@@ -30,6 +32,7 @@
 
 using namespace std;
 using namespace Segmenter;
+namespace po = boost::program_options;
 
 struct Options
 {
@@ -52,23 +55,10 @@ struct Options
     {}
 };
 
-static void printUsage()
+static void printUsage(po::options_description opt_description)
 {
-    cout << "Usage: extract <filename> <options...>" << endl;
-    cout << "Options:" << endl;
-    cout
-    << "\t -o <filename>..... Output file. Default: extract.out.wav." << endl
-    << "\t -r <sampleRate>... Resample to <sampleRate> before feature extraction. Default: 11025." << endl
-    << "\t --no-resample .... Do not resample. Equivalent to '-r 0'." << endl
-    << "\t -rtype <type>..... Type of resampling: 0 = linear, 1 = sinc. Default: 1." << endl
-    << "\t -b <blocksize> ... Amount of input frames to read and process at a time." << endl
-    << "\t -F, --features ... Output raw features instead of statistics." << endl
-    << "\t -T, --text ....... Output a text file instead of wav file." << endl
-    << "\t -l <limit> ....... End processing at <limit> % of input file." << endl
-    << "\t -h ............... Print this help." << endl
-    << "\t -h stats ......... Print order of statistic output." << endl
-    << "\t -h features ...... Print order of feature output." << endl
-    << endl;
+    cout << "Usage: extract file [options...]" << endl;
+    cout << opt_description << endl;
 }
 
 static void printHelpStatistics()
@@ -116,111 +106,6 @@ static void printHelpFeatures()
         cout << '\t' << i << ' ' << strings[i] << endl;
 }
 
-static bool checkHasValue( int i, int argc, char **argv, bool silent = false ) {
-    bool ok = (i+1 < argc) && (argv[i+1][0] != '-');
-    if (!ok && !silent)
-        cerr << "Option " << argv[i] << " needs an argument!" << endl;
-    return ok;
-}
-
-static bool parseOptions( int argc, char **argv, Options & opt )
-{
-    int argi = 1;
-
-    if (argc > 1 && argv[1][0] != '-') {
-        opt.input_filename = argv[1];
-        ++argi;
-    }
-
-    while( argi < argc )
-    {
-        char *arg = argv[argi];
-
-        if (strcmp(arg, "-h") == 0) {
-            if (checkHasValue(argi, argc, argv, true))
-            {
-                ++argi;
-                char *topic = argv[argi];
-                if (strcmp(topic, "stats") == 0) {
-                    printHelpStatistics();
-                    return false;
-                }
-                else if (strcmp(topic, "features") == 0) {
-                    printHelpFeatures();
-                    return false;
-                }
-            }
-            printUsage();
-            return false;
-        }
-        else if (strcmp(arg, "-o") == 0) {
-            if ( !checkHasValue(argi, argc, argv) )
-                return false;
-            ++argi;
-            opt.output_filename = argv[argi];
-        }
-        else if (strcmp(arg, "-r") == 0) {
-            if ( !checkHasValue(argi, argc, argv) )
-                return false;
-            ++argi;
-            std::istringstream val_str(argv[argi]);
-            float val;
-            val_str >> val;
-            if (!val_str.eof()) {
-                cerr << "ERROR: Wrong argument format for option -r!" << endl;
-                return false;
-            }
-            opt.resample_rate = val;
-        }
-        else if (strcmp(arg, "--no-resample") == 0)
-            opt.resample_rate = 0;
-        else if (strcmp(arg, "-rtype") == 0)
-        {
-            if ( !checkHasValue(argi, argc, argv) )
-                return false;
-            ++argi;
-            opt.resample_type = atoi(argv[argi]);
-        }
-        else if (strcmp(arg, "-b") == 0) {
-            if ( !checkHasValue(argi, argc, argv) )
-                return false;
-            ++argi;
-            opt.block_size = atoi(argv[argi]);
-        }
-        else if (strcmp(arg, "-l") == 0) {
-            if ( !checkHasValue(argi, argc, argv) )
-                return false;
-            ++argi;
-            char *val = argv[argi];
-            opt.limit = atoi(val);
-        }
-        else if (strcmp(arg, "-F") == 0 || strcmp(arg, "--features") == 0)
-            opt.features = true;
-        else if (strcmp(arg, "-T") == 0 || strcmp(arg, "--text") == 0)
-            opt.binary = false;
-        else if (arg[0] != '-') {
-            cerr << "ERROR: Redundant argument: " << arg << endl;
-            return false;
-        }
-        else {
-            cerr << "ERROR: Unknown option: " << arg << endl;
-            return false;
-        }
-
-        ++argi;
-    }
-
-    if (opt.output_filename.empty()) {
-        opt.output_filename = "extract.out";
-        if (opt.binary)
-            opt.output_filename += ".wav";
-        else
-            opt.output_filename += ".txt";
-    }
-
-    return true;
-}
-
 void printOptions( Options & opt )
 {
     cout << "Options:" << endl;
@@ -242,18 +127,88 @@ void printOptions( Options & opt )
     cout << '\t' << "- format: " << (opt.binary ? "binary" : "text") << endl;
 }
 
+
+static bool parse_options( int argc, char **argv, Options & opt )
+{
+    po::options_description desc("Allowed options");
+    desc.add_options()
+            ("help,h", po::value<string>()->implicit_value("usage"),
+             "Print this help.\n"
+             "Optionally, one of the following arguments may be given:\n"
+             "  features: \tPrint order of output features.\n"
+             "  stats: \tPrint order of output statistics.\n")
+            ("input,i", po::value<string>()->required(), "Input file.")
+            ("output,o", po::value<string>(), "Output file.")
+            ("block-size,b", po::value<int>()->default_value(4096 * 3),
+             "Amount of input frames to read and process at a time.")
+            ("resample,r", po::value<float>()->default_value(11025.f),
+             "Resample to 'arg' sampling rate before feature extraction. 0 implies no resampling.")
+            ("resample-linear", "Use linear instead of sinc resampling.")
+            ("features,f", "Output raw features instead of statistics.")
+            ("text,t", "Output text instead of binary.")
+            ("limit,l", po::value<int>(), "Percentage of input to process.")
+    ;
+
+    po::positional_options_description positional_desc;
+    positional_desc.add("input", 1);
+
+    po::variables_map var;
+    po::store(po::command_line_parser(argc, argv)
+              .options(desc).positional(positional_desc).run(), var);
+
+    if (!var["input"].empty())
+        opt.input_filename = var["input"].as<string>();
+    if (!var["output"].empty())
+        opt.output_filename = var["output"].as<string>();
+    opt.block_size = var["block-size"].as<int>();
+    opt.resample_rate = var["resample"].as<float>();
+    opt.resample_type = var.count("resample-linear") ? 0 : 1;
+    opt.features = var.count("features") > 0;
+    opt.binary = var.count("text") == 0;
+    if (!var["limit"].empty())
+        opt.limit = var["limit"].as<int>();
+
+    if (opt.output_filename.empty()) {
+        opt.output_filename = "extract.out";
+        if (opt.binary)
+            opt.output_filename += ".wav";
+        else
+            opt.output_filename += ".txt";
+    }
+
+    if (var.count("help")) {
+        string help_topic = var["help"].as<string>();
+        if (help_topic == "usage")
+            printUsage(desc);
+        else if (help_topic == "features")
+            printHelpFeatures();
+        else if (help_topic == "stats")
+            printHelpStatistics();
+        else
+            cout << "No help for '" << help_topic << "'" << endl;
+        return false;
+    }
+
+    if (opt.input_filename.empty()) {
+        printUsage(desc);
+        return false;
+    }
+
+    return true;
+}
+
 int main ( int argc, char *argv[] )
 {
     // parse options
 
     Options opt;
 
-    if (!parseOptions( argc, argv, opt ))
+    try {
+        if (!parse_options( argc, argv, opt ))
+            return 0;
+    } catch (std::exception & e) {
+        cerr << "ERROR in options: " << e.what() << endl;
         return 1;
-
-    if (opt.input_filename.empty()) {
-        printUsage();
-        return 0;
     }
 
     if (opt.block_size < 1024) {

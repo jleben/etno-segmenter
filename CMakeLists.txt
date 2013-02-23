@@ -47,6 +47,7 @@ if(BUILD_EXTRACT_APP)
     find_package(Dependencies)
 
     include_directories(
+        ${BOOST_PROGRAM_OPTIONS_INCLUDE_DIR}
         ${FFTW_INCLUDE_DIR}
         ${SAMPLERATE_INCLUDE_DIR}
         ${SNDFILE_INCLUDE_DIR}
@@ -60,6 +61,7 @@ if(BUILD_EXTRACT_APP)
     add_executable( extract ${app_src} ${modules_src} )
 
     target_link_libraries( extract
+        ${BOOST_PROGRAM_OPTIONS_LIBRARY}
         ${SNDFILE_LIBRARY}
         ${SAMPLERATE_LIBRARY}
         ${FFTW_LIBRARY}
