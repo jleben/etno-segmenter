@@ -79,7 +79,8 @@ static void printHelpStatistics()
         "MFCC 4 Standard Deviation",
         "MFCC 2 Delta Standard Deviation",
         "MFCC 3 Delta Standard Deviation",
-        "MFCC 4 Delta Standard Deviation"
+        "MFCC 4 Delta Standard Deviation",
+        "Energy Gate Mean"
     };
 
     cout << "Statistics output contains:" << endl;
@@ -91,6 +92,7 @@ static void printHelpFeatures()
 {
     static const char * strings[] = {
         "Energy",
+        "Energy Gate",
         "Entropy",
         "Pitch Density",
         "Tonality",
@@ -323,6 +325,7 @@ int main ( int argc, char *argv[] )
                 for (int t = 0; t < featureN; ++t) {
                     const Statistics::InputFeatures & features = pipeline->features()[t];
                     text_out << features.energy << '\t';
+                    text_out << features.energyGate << '\t';
                     text_out << features.entropy << '\t';
                     text_out << features.pitchDensity << '\t';
                     text_out << features.tonality << '\t';
