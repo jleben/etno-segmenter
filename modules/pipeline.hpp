@@ -63,6 +63,7 @@ private:
     enum ModuleType {
         ResamplerModule = 0,
         EnergyModule,
+        EnergyGateModule,
         PowerSpectrumModule,
         MelSpectrumModule,
         MfccModule,

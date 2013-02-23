@@ -22,6 +22,7 @@
 
 #include "resampler.hpp"
 #include "energy.hpp"
+#include "energy_gate.hpp"
 #include "spectrum.hpp"
 #include "mel_spectrum.hpp"
 #include "real_cepstrum.hpp"
@@ -58,10 +59,14 @@ Pipeline::Pipeline ( const InputContext & inCtx,
 
     const int statDeltaBlockSize = 5;
 
+    const int energyAbsThreshold = -55; // - 55 dB
+    const int energyRelThreshold = -10; // 10 dB below average
+
     m_modules.resize( ModuleCount );
 
     get(ResamplerModule) = new Segmenter::Resampler( in.sampleRate, fourier.sampleRate, inCtx.resampleType );
     get(EnergyModule) = new Segmenter::Energy( fourier.blockSize );
+    get(EnergyGateModule) = new Segmenter::EnergyGate( energyAbsThreshold, energyRelThreshold );
     get(PowerSpectrumModule) = new Segmenter::PowerSpectrum( fourier.blockSize );
     get(MelSpectrumModule) = new Segmenter::MelSpectrum( mfccFilterCount, fourier.sampleRate,  fourier.blockSize );
     get(MfccModule) = new Segmenter::Mfcc( mfccFilterCount );
@@ -86,6 +91,7 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 {
     Segmenter::Resampler *resampler = static_cast<Segmenter::Resampler*>( get(ResamplerModule) );
     Segmenter::Energy *energy = static_cast<Segmenter::Energy*>( get(EnergyModule) );
+    Segmenter::EnergyGate *energyGate = static_cast<Segmenter::EnergyGate*>( get(EnergyGateModule) );
     Segmenter::PowerSpectrum *powerSpectrum = static_cast<Segmenter::PowerSpectrum*>( get(PowerSpectrumModule) );
     Segmenter::MelSpectrum *melSpectrum = static_cast<Segmenter::MelSpectrum*>( get(MelSpectrumModule) );
     Segmenter::Mfcc *mfcc = static_cast<Segmenter::Mfcc*>( get(MfccModule) );
@@ -122,6 +128,8 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 
         energy->process( block );
 
+        energyGate->process( energy->output() );
+
         powerSpectrum->process( block );
 
         const std::vector<float> & powerSpectrumOut = powerSpectrum->output();
@@ -144,6 +152,7 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 
         Statistics::InputFeatures statInput;
         statInput.energy = energy->output();
+        statInput.energyGate = energyGate->output();
         statInput.entropy = chromaticEntropy->output();
         statInput.mfcc2 = mfcc->output()[2];
         statInput.mfcc3 = mfcc->output()[3];
@@ -166,6 +175,7 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 
 void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
 {
+#if 0
     Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( get(ClassifierModule) );
 
     for (int i = 0; i < m_statsBuffer.size(); ++i)
@@ -175,12 +185,12 @@ void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
         classifier->process( stat.features );
 
         const std::vector<float> & distribution = classifier->probabilities();
-//#if 0
+
         float avgClass = 0;
         for (int i = 0; i < distribution.size(); ++i)
             avgClass += distribution[i] * i;
         avgClass /= distribution.size() - 1;
-//#endif
+
         Vamp::Plugin::Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
@@ -196,6 +206,7 @@ void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
 
         m_statsTime = m_statsTime + m_statsStepDuration;
     }
+#endif
 }
 
 }

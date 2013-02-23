@@ -48,12 +48,14 @@ public:
         MFCC2_DELTA_STD,
         MFCC3_DELTA_STD,
         MFCC4_DELTA_STD,
+        ENERGY_GATE_MEAN,
 
         OUTPUT_FEATURE_COUNT
     };
 
     struct InputFeatures {
         float energy;
+        float energyGate;
         float entropy;
         float pitchDensity;
         float tonality;
@@ -185,6 +187,7 @@ private:
             output[MFCC2_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc2) );
             output[MFCC3_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc3) );
             output[MFCC4_DELTA_STD] = stdDev( DELTA_VECTOR(mfcc4) );
+            output[ENERGY_GATE_MEAN] = mean( INPUT_VECTOR(energyGate) );
 
             outBuffer.push_back(output);
 
