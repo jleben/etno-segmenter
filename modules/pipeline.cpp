@@ -175,14 +175,13 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
 
 void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
 {
-#if 0
     Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( get(ClassifierModule) );
 
     for (int i = 0; i < m_statsBuffer.size(); ++i)
     {
         const Statistics::OutputFeatures & stat = m_statsBuffer[i];
 
-        classifier->process( stat.features );
+        classifier->process( stat.data );
 
         const std::vector<float> & distribution = classifier->probabilities();
 
@@ -194,19 +193,13 @@ void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
         Vamp::Plugin::Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
-        classification.values.push_back( avgClass );
-        //classification.values = distribution;
-
-        //classification.values.push_back( stat[ Statistics::TONALITY1_MEAN ] );
-
-        //classification.values.resize( Statistics::OUTPUT_FEATURE_COUNT );
-        //std::memcpy( classification.values.data(), &stat.features[0], Statistics::OUTPUT_FEATURE_COUNT * sizeof(float) );
+        //classification.values.push_back( avgClass );
+        classification.values = distribution;
 
         output.push_back( classification );
 
         m_statsTime = m_statsTime + m_statsStepDuration;
     }
-#endif
 }
 
 }

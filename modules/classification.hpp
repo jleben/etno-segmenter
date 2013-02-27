@@ -38,7 +38,7 @@ class Classifier : public Module
 
     static const float s_coeffs[s_inputCount+1][s_classCount-1];
 
-    typedef float InputArray [s_inputCount];
+    //typedef float InputArray [s_inputCount];
 
     std::vector<float> m_output;
     std::vector< std::string > m_classNames;
@@ -61,7 +61,7 @@ public:
 #endif
     }
 
-    void process( const InputArray & input )
+    void process( const float * input )
     {
 #if 0
         std::cout << "stats: ";

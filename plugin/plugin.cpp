@@ -128,36 +128,6 @@ bool Plugin::initialise(size_t channels, size_t stepSize, size_t blockSize)
 #endif
 }
 
-void Plugin::createPipeline()
-{
-    delete m_pipeline;
-
-    InputContext inCtx;
-    inCtx.sampleRate = m_inputSampleRate;
-    inCtx.blockSize = m_blockSize;
-    // FIXME:
-    inCtx.resampleType = SRC_LINEAR;
-
-    FourierContext fCtx;
-    if (noResampling) {
-        fCtx.sampleRate = m_inputSampleRate;
-        fCtx.blockSize = 2048;
-        fCtx.stepSize = 1024;
-    } else {
-        fCtx.sampleRate = 11025;
-        fCtx.blockSize = 512;
-        fCtx.stepSize = 256;
-    }
-
-    StatisticContext statCtx;
-    statCtx.blockSize = 132;
-    statCtx.stepSize = 22;
-
-    std::cout << "*** Segmenter: blocksize=" << fCtx.blockSize << " stepSize=" << fCtx.stepSize << std::endl;
-
-    m_pipeline = new Pipeline( inCtx, fCtx, statCtx );
-}
-
 void Plugin::reset()
 {
     std::cout << "**** Plugin::reset" << std::endl;
@@ -180,7 +150,7 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
         outClasses.sampleRate = 1;
     }
     outClasses.hasFixedBinCount = true;
-    outClasses.binCount = 1;
+    outClasses.binCount = 5;
 
     /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
     if (classifier) outClasses.binNames = classifier->classNames();*/
@@ -247,6 +217,29 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
 
 //#endif
     return list;
+}
+
+void Plugin::createPipeline()
+{
+    delete m_pipeline;
+
+    InputContext inCtx;
+    inCtx.sampleRate = m_inputSampleRate;
+    inCtx.blockSize = m_blockSize;
+    inCtx.resampleType = SRC_SINC_FASTEST;
+
+    FourierContext fCtx;
+    fCtx.sampleRate = 11025;
+    fCtx.blockSize = std::pow(2, std::floor( std::log(0.05 * fCtx.sampleRate) / std::log(2.0) ));
+    fCtx.stepSize = fCtx.blockSize / 2;
+
+    StatisticContext statCtx;
+    statCtx.blockSize = 3 * fCtx.sampleRate / fCtx.stepSize;
+    statCtx.stepSize = statCtx.blockSize / 6;
+
+    std::cout << "*** Segmenter: blocksize=" << fCtx.blockSize << " stepSize=" << fCtx.stepSize << std::endl;
+
+    m_pipeline = new Pipeline( inCtx, fCtx, statCtx );
 }
 
 Vamp::Plugin::FeatureSet Plugin::process(const float *const *inputBuffers, Vamp::RealTime timestamp)
