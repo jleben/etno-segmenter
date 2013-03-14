@@ -193,8 +193,8 @@ void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
         Vamp::Plugin::Feature classification;
         classification.hasTimestamp = true;
         classification.timestamp = m_statsTime;
-        //classification.values.push_back( avgClass );
-        classification.values = distribution;
+        classification.values.push_back( avgClass );
+        //classification.values = distribution;
 
         output.push_back( classification );
 

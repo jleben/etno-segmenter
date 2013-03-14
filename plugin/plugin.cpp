@@ -150,7 +150,7 @@ Vamp::Plugin::OutputList Plugin::getOutputDescriptors() const
         outClasses.sampleRate = 1;
     }
     outClasses.hasFixedBinCount = true;
-    outClasses.binCount = 5;
+    outClasses.binCount = 1;
 
     /*outClasses.binCount = classifier ? classifier->classNames().count() : 0;
     if (classifier) outClasses.binNames = classifier->classNames();*/
