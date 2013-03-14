@@ -38,8 +38,6 @@ class Classifier : public Module
 
     static const float s_coeffs[s_inputCount+1][s_classCount-1];
 
-    //typedef float InputArray [s_inputCount];
-
     std::vector<float> m_output;
     std::vector< std::string > m_classNames;
 
@@ -49,26 +47,10 @@ public:
         m_output.resize(s_classCount);
         std::string classNames[] = { "solo", "choir", "bell", "instrumental", "speech" };
         m_classNames.insert( m_classNames.end(), &classNames[0], &classNames[5] );
-
-#if 0
-        std::cout << "coeffs:" << std::endl;
-        for (int i = 0; i < s_inputCount+1; ++i) {
-            for(int j = 0; j < s_classCount-1; ++j) {
-                std::cout << s_coeffs[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
-#endif
     }
 
     void process( const float * input )
     {
-#if 0
-        std::cout << "stats: ";
-        for (int i = 0; i < s_inputCount; ++i)
-            std::cout << input[i] << " ";
-        std::cout << std::endl;
-#endif
         float *t = m_output.data();
         float sum = 1;
         for (int nJ = 0; nJ < s_classCount - 1; nJ++)
@@ -80,12 +62,6 @@ public:
             t[nJ] = std::exp( t[nJ] + s_coeffs[0][nJ] );
             sum += t[nJ];
         }
-#if 0
-        std::cout << "classes: ";
-        for (int i = 0; i < s_classCount - 1; ++i)
-            std::cout << t[i] << " ";
-        std::cout << std::endl;
-#endif
         for (int nJ = 0; nJ < s_classCount - 1; nJ++)
             t[nJ] /= sum;
         t[s_classCount - 1] = 1/sum;
