@@ -76,8 +76,8 @@ public:
             t[nJ] = 0;
             int nK;
             for (nK = 0; nK < s_inputCount; nK++)
-                t[nJ] += s_coeffs[nK][nJ] * input[nK];
-            t[nJ] = std::exp( t[nJ] + s_coeffs[nK][nJ] );
+                t[nJ] += s_coeffs[nK+1][nJ] * input[nK];
+            t[nJ] = std::exp( t[nJ] + s_coeffs[0][nJ] );
             sum += t[nJ];
         }
 #if 0
