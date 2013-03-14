@@ -93,6 +93,7 @@ private:
     std::vector<float> m_spectrumMag;
     std::vector<Statistics::InputFeatures> m_featBuffer;
     std::vector<Segmenter::Statistics::OutputFeatures> m_statsBuffer;
+    float m_last_classification;
 
     bool m_resample;
 };

@@ -41,6 +41,7 @@ Pipeline::Pipeline ( const InputContext & inCtx,
     m_inputContext( inCtx ),
     m_fourierContext( fCtx ),
     m_statContext( statCtx ),
+    m_last_classification(0.f),
     m_resample( inCtx.sampleRate != fCtx.sampleRate )
 {
     InputContext & in = m_inputContext;
@@ -173,7 +174,7 @@ void Pipeline::computeStatistics( const float * input, int inputSize, bool endOf
     m_resampBuffer.erase( m_resampBuffer.begin(), m_resampBuffer.begin() + blockFrame );
 }
 
-void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
+void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output_list )
 {
     Segmenter::Classifier *classifier = static_cast<Segmenter::Classifier*>( get(ClassifierModule) );
 
@@ -181,22 +182,31 @@ void Pipeline::computeClassification( Vamp::Plugin::FeatureList & output )
     {
         const Statistics::OutputFeatures & stat = m_statsBuffer[i];
 
-        classifier->process( stat.data );
+        float classification = m_last_classification;
 
-        const std::vector<float> & distribution = classifier->probabilities();
+        if (stat[Statistics::ENERGY_GATE_MEAN] > 0.4)
+        {
+            classifier->process( stat.data );
 
-        float avgClass = 0;
-        for (int i = 0; i < distribution.size(); ++i)
-            avgClass += distribution[i] * i;
-        avgClass /= distribution.size() - 1;
+            const std::vector<float> & distribution = classifier->probabilities();
 
-        Vamp::Plugin::Feature classification;
-        classification.hasTimestamp = true;
-        classification.timestamp = m_statsTime;
-        classification.values.push_back( avgClass );
-        //classification.values = distribution;
+            static int class_mapping[5] = { 1, 2, 3, 4, 0 };
 
-        output.push_back( classification );
+            classification = 0;
+            for (int i = 0; i < distribution.size(); ++i)
+                classification += distribution[i] * class_mapping[i];
+            classification /= distribution.size() - 1;
+
+            m_last_classification = classification;
+        }
+
+        Vamp::Plugin::Feature output;
+        output.hasTimestamp = true;
+        output.timestamp = m_statsTime;
+        output.values.push_back( classification );
+        //output.values = distribution;
+
+        output_list.push_back( output );
 
         m_statsTime = m_statsTime + m_statsStepDuration;
     }
